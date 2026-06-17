@@ -72,6 +72,23 @@ npm run start
 
 Open **http://YOUR_LAN_IP:3847** (shown in the terminal) on any device on the same Wi-Fi.
 
+### 4. Running via Docker
+
+Alternatively, you can run the entire application as a containerized service using Docker Compose:
+
+```bash
+# Build and start the container
+docker-compose up -d --build
+```
+
+- Port `3847` will be exposed.
+- All database files and media uploads will be stored securely and persist in a managed volume named `clipboard-data`.
+
+To stop the container:
+```bash
+docker-compose down
+```
+
 ## Pairing a phone
 
 1. On Windows, open the app and click **Start on this device** (name it e.g. "Windows PC").

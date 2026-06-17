@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  universal-clipboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: universal-clipboard:latest
+    container_name: universal-clipboard
+    ports:
+      - "3847:3847"
+    volumes:
+      - clipboard-data:/app/backend/data
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3847
+
+volumes:
+  clipboard-data:
