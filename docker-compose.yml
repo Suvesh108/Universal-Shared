@@ -15,6 +15,9 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3847
+      # Optional: Override auto-detected IP if entrypoint fails.
+      # Create a .env file next to docker-compose.yml with:
+      #   HOST_IP=192.168.x.x
       - HOST_IP=${HOST_IP:-}
 
 volumes:

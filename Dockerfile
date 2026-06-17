@@ -10,6 +10,9 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
+# Install iproute2 so the entrypoint can run `ip route` to detect host IP
+RUN apk add --no-cache iproute2
+
 # Copy and install production-only backend dependencies
 COPY backend/package*.json ./backend/
 RUN cd backend && npm ci --only=production
@@ -19,6 +22,10 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 # Copy backend source code
 COPY backend/src ./backend/src
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Create directory for persistent data (SQLite & Uploads)
 RUN mkdir -p /app/backend/data
@@ -35,4 +42,4 @@ EXPOSE 3847
 VOLUME ["/app/backend/data"]
 
 WORKDIR /app/backend
-CMD ["node", "src/server.js"]
+ENTRYPOINT ["/docker-entrypoint.sh"]

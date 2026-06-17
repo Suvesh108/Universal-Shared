@@ -67,10 +67,21 @@ export function createApiRouter(io, connectedSockets, server) {
   const currentPort = () => server.address()?.port || PORT;
 
   const getBaseUrl = (req) => {
+    // Always use HOST_IP / PUBLIC_URL env var if explicitly set (Docker, tunnels, etc.)
+    if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+    if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
+
     const hostHeader = req.get('host') || '';
-    if (hostHeader.includes('localhost') || hostHeader.includes('127.0.0.1') || hostHeader.includes('[::1]')) {
+    const hostOnly = hostHeader.split(':')[0];
+
+    // Fall back to primary LAN IP if host is loopback or Docker bridge (172.x.x.x / 10.x.x.x internal)
+    const isLoopback = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '[::1]';
+    const isDockerInternal = /^172\.(1[6-9]|2\d|3[01])\./.test(hostOnly) || hostOnly.startsWith('10.');
+
+    if (isLoopback || isDockerInternal) {
       return getPrimaryLocalUrl(currentPort());
     }
+
     return `${req.protocol}://${hostHeader}`;
   };
 
