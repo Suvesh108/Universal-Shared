@@ -1,0 +1,20 @@
+{
+  "name": "universal-clipboard-server",
+  "version": "1.0.0",
+  "description": "Self-hosted local clipboard sync server",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
+    "sql.js": "^1.12.0",
+    "uuid": "^11.0.5"
+  }
+}
