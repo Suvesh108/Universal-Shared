@@ -1,6 +1,7 @@
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -34,6 +35,20 @@ export function getPrimaryLocalUrl(port = PORT) {
   if (process.env.PUBLIC_URL) {
     return process.env.PUBLIC_URL;
   }
+  
+  // Try reading persistent settings file for hostIp override
+  try {
+    const settingsPath = path.join(DATA_DIR, 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      if (settings.hostIp) {
+        return `http://${settings.hostIp}:${port}`;
+      }
+    }
+  } catch (err) {
+    // Ignore settings read errors
+  }
+
   if (process.env.HOST_IP) {
     return `http://${process.env.HOST_IP}:${port}`;
   }

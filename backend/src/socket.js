@@ -5,6 +5,7 @@ import {
   touchDevice,
 } from './db.js';
 import { detectType, serializeItem } from './clipboard.js';
+import { getPrimaryLocalUrl, PORT } from './config.js';
 
 export function setupSocket(io) {
   const connectedSockets = new Map(); // deviceId -> Set<socketId>
@@ -26,10 +27,12 @@ export function setupSocket(io) {
       socket.join('clipboard');
       socket.data.deviceId = device.id;
 
-      if (!connectedSockets.has(device.id)) {
-        connectedSockets.set(device.id, new Set());
+      let set = connectedSockets.get(device.id);
+      if (!set) {
+        set = new Set();
+        connectedSockets.set(device.id, set);
       }
-      connectedSockets.get(device.id).add(socket.id);
+      set.add(socket.id);
 
       io.emit('devices:updated', { deviceId: device.id, online: true });
       ack?.({ ok: true, device: { id: device.id, name: device.name, type: device.type } });
@@ -43,7 +46,7 @@ export function setupSocket(io) {
 
     socket.on('clipboard:send', (payload, ack) => {
       if (!device) {
-        ack?.({ ok: false, error: 'Not registered' });
+        ack?.({ ok: false, error: 'Unregistered device' });
         return;
       }
 
@@ -67,8 +70,20 @@ export function setupSocket(io) {
         createdAt: Date.now(),
       });
 
-      const host = socket.handshake.headers.host || 'localhost:3847';
-      const baseUrl = `http://${host}`;
+      const hostHeader = socket.handshake.headers.host || '';
+      const hostOnly = hostHeader.split(':')[0];
+      const isLoopback = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '[::1]';
+      const isDockerInternal = /^172\.(1[6-9]|2\d|3[01])\./.test(hostOnly) || hostOnly.startsWith('10.');
+
+      let baseUrl;
+      if (process.env.PUBLIC_URL) {
+        baseUrl = process.env.PUBLIC_URL;
+      } else if (isLoopback || isDockerInternal) {
+        baseUrl = getPrimaryLocalUrl(PORT);
+      } else {
+        baseUrl = `http://${hostHeader}`;
+      }
+
       const serialized = serializeItem(item, baseUrl);
 
       socket.to('clipboard').emit('clipboard:receive', serialized);

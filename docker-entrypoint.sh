@@ -1,18 +1,14 @@
 #!/bin/sh
-# Auto-detect the host machine's LAN IP via Docker gateway
-# This allows the container to serve correct QR pairing URLs
 
 if [ -z "$HOST_IP" ]; then
-  # Get the default gateway (the Docker host / host machine)
-  GATEWAY=$(ip route | awk '/default/ { print $3 }' | head -n1)
-  
-  if [ -n "$GATEWAY" ]; then
-    export HOST_IP="$GATEWAY"
-    echo "[entrypoint] Auto-detected HOST_IP from gateway: $HOST_IP"
-  else
-    echo "[entrypoint] WARNING: Could not detect HOST_IP. Pairing QR may show wrong IP."
-    echo "[entrypoint] Set HOST_IP=<your-lan-ip> in your .env file or docker-compose environment."
-  fi
+  echo "[entrypoint] WARNING: HOST_IP environment variable is not set."
+  echo "[entrypoint] If you want to connect external devices (like your phone) via QR code,"
+  echo "[entrypoint] you should set HOST_IP to your laptop's Wi-Fi IP address (e.g., 192.168.0.130)."
+  echo "[entrypoint] You can do this by creating a '.env' file next to docker-compose.yml:"
+  echo "---"
+  echo "HOST_IP=192.168.0.130"
+  echo "---"
+  echo "[entrypoint] Alternatively, you can enter your laptop's IP directly in the pairing screen of the web UI."
 else
   echo "[entrypoint] Using provided HOST_IP: $HOST_IP"
 fi

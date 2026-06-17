@@ -115,6 +115,7 @@ docker-compose down
 1. On Windows, open the app and click **Start on this device** (name it e.g. "Windows PC").
 2. Click **Pair device** to show a QR code and 6-character code.
 3. On your Android phone (same Wi-Fi), scan the QR or open the URL manually.
+   - *Docker/LAN Note:* If the QR connection fails on mobile, type your laptop's actual Wi-Fi IP (e.g., `192.168.0.130`) into the **Laptop LAN IP Address** input in the pairing modal and click **Update**. This regenerates the QR code instantly to target your physical laptop IP and saves it.
 4. Choose **Join with code**, enter the code, and name your phone.
 
 ## Usage

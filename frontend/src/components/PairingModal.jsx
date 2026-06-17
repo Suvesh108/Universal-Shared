@@ -8,6 +8,7 @@ export default function PairingModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [customIp, setCustomIp] = useState(localStorage.getItem('custom_host_ip') || '');
 
   useEffect(() => {
     if (!open) return;
@@ -19,10 +20,45 @@ export default function PairingModal({ open, onClose }) {
         setQr(data.qr);
         setCode(data.code);
         setPairUrl(data.pairUrl);
+        // Pre-fill input if there isn't a custom IP already stored
+        if (!localStorage.getItem('custom_host_ip') && data.pairUrl) {
+          try {
+            const urlObj = new URL(data.pairUrl);
+            setCustomIp(urlObj.hostname);
+          } catch (e) {}
+        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [open]);
+
+  const handleUpdateIp = () => {
+    const trimmed = customIp.trim();
+    setLoading(true);
+    setError(null);
+
+    if (trimmed) {
+      localStorage.setItem('custom_host_ip', trimmed);
+    } else {
+      localStorage.removeItem('custom_host_ip');
+    }
+
+    api.updateSettings({ hostIp: trimmed })
+      .then(() => api.generatePairQr())
+      .then((data) => {
+        setQr(data.qr);
+        setCode(data.code);
+        setPairUrl(data.pairUrl);
+        if (data.pairUrl) {
+          try {
+            const urlObj = new URL(data.pairUrl);
+            setCustomIp(urlObj.hostname);
+          } catch (e) {}
+        }
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  };
 
   const handleCopy = () => {
     if (!pairUrl) return;
@@ -63,12 +99,36 @@ export default function PairingModal({ open, onClose }) {
               <span className="label">Pairing Connection URL</span>
               <code>{pairUrl}</code>
             </div>
+
+            <div className="ip-override-section">
+              <span className="label">Laptop LAN IP Address</span>
+              <div className="ip-override-input-group">
+                <input
+                  type="text"
+                  value={customIp}
+                  onChange={(e) => setCustomIp(e.target.value)}
+                  placeholder="e.g., 192.168.0.130"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleUpdateIp}
+                  disabled={loading}
+                >
+                  Update
+                </button>
+              </div>
+              <p className="ip-help-text">
+                If your phone cannot connect, make sure it is on the same Wi-Fi and enter your laptop's local Wi-Fi IP address here.
+              </p>
+            </div>
             
             <button
               type="button"
               className="btn btn-secondary btn-sm btn-block"
               onClick={handleCopy}
-              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '1.25rem' }}
             >
               {copied ? (
                 <>
@@ -90,7 +150,7 @@ export default function PairingModal({ open, onClose }) {
           </div>
         )}
 
-        <p className="modal-footnote">Code expires in 10 minutes. All clipboard transfers stay completely private on your local machine.</p>
+        <p className="modal-footnote">Code expires in 10 minutes. All clipboard transfers stay completely private on your local network.</p>
       </div>
     </div>
   );

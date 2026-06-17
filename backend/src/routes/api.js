@@ -6,6 +6,7 @@ import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
 import {
   UPLOADS_DIR,
+  DATA_DIR,
   MAX_FILE_SIZE,
   PAIRING_CODE_TTL_MS,
   DEVICE_STALE_MS,
@@ -34,8 +35,8 @@ fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 const storage = multer.diskStorage({
   destination: UPLOADS_DIR,
   filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname) || '';
-    cb(null, `${uuidv4()}${ext}`);
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    cb(null, `${unique}-${file.originalname}`);
   },
 });
 
@@ -87,6 +88,17 @@ export function createApiRouter(io, connectedSockets, server) {
 
   router.get('/info', (_req, res) => {
     const actualPort = currentPort();
+    let hostIpOverride = null;
+    try {
+      const settingsPath = path.join(DATA_DIR, 'settings.json');
+      if (fs.existsSync(settingsPath)) {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+        hostIpOverride = settings.hostIp || null;
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     res.json({
       name: 'Universal Clipboard',
       version: '1.0.0',
@@ -94,7 +106,24 @@ export function createApiRouter(io, connectedSockets, server) {
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),
       onlineDevices: connectedSockets.size,
+      hostIpOverride,
     });
+  });
+
+  router.post('/settings', (req, res) => {
+    const { hostIp } = req.body || {};
+    try {
+      const settingsPath = path.join(DATA_DIR, 'settings.json');
+      let settings = {};
+      if (fs.existsSync(settingsPath)) {
+        settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      }
+      settings.hostIp = hostIp ? String(hostIp).trim() : null;
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
+      res.json({ ok: true, settings });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   router.get('/pair/qr', async (req, res) => {

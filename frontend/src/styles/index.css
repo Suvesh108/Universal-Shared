@@ -1158,6 +1158,64 @@ body {
   font-family: ui-monospace, monospace;
 }
 
+.ip-override-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  text-align: left;
+}
+
+.ip-override-section .label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.ip-override-input-group {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.ip-override-input-group input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: ui-monospace, monospace;
+  min-height: 32px;
+}
+
+.ip-override-input-group input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+.ip-override-input-group .btn {
+  padding: 0 0.75rem;
+  font-size: 0.75rem;
+  height: 32px;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ip-help-text {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+  line-height: 1.35;
+}
+
 .modal-footnote {
   margin: 1.25rem 0 0;
   font-size: 0.72rem;

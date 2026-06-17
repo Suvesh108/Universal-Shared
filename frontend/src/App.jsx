@@ -10,6 +10,7 @@ import { useClipboardHistory, copyToClipboard } from './hooks/useClipboard';
 import { useTheme } from './hooks/useTheme';
 import { saveDeviceName } from './utils/storage';
 import CustomDialog from './components/CustomDialog';
+import { api } from './utils/api';
 
 export default function App() {
   const { device, loading, error, register, pairWithCode, logout, updateProfile } = useDevice();
@@ -87,6 +88,16 @@ export default function App() {
       /* no SW — fully local */
     }
   }, []);
+
+  // Sync saved custom host IP to backend if they are out of sync
+  useEffect(() => {
+    if (serverInfo && serverInfo.hostIpOverride !== undefined) {
+      const savedIp = localStorage.getItem('custom_host_ip');
+      if (savedIp && savedIp !== serverInfo.hostIpOverride) {
+        api.updateSettings({ hostIp: savedIp }).catch(() => {});
+      }
+    }
+  }, [serverInfo]);
 
   if (!device) {
     return (

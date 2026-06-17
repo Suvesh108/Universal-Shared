@@ -16,6 +16,13 @@ async function parseJson(res) {
 export const api = {
   info: () => fetch('/api/info').then(parseJson),
 
+  updateSettings: (settings) =>
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    }).then(parseJson),
+
   generatePairQr: () => fetch('/api/pair/qr').then(parseJson),
 
   verifyPair: (body) =>

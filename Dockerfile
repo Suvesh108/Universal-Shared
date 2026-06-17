@@ -10,9 +10,6 @@ RUN npm run build
 FROM node:20-alpine
 WORKDIR /app
 
-# Install iproute2 so the entrypoint can run `ip route` to detect host IP
-RUN apk add --no-cache iproute2
-
 # Copy and install production-only backend dependencies
 COPY backend/package*.json ./backend/
 RUN cd backend && npm ci --only=production
