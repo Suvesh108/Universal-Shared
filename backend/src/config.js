@@ -31,6 +31,12 @@ export function getLocalAddresses() {
 }
 
 export function getPrimaryLocalUrl(port = PORT) {
+  if (process.env.PUBLIC_URL) {
+    return process.env.PUBLIC_URL;
+  }
+  if (process.env.HOST_IP) {
+    return `http://${process.env.HOST_IP}:${port}`;
+  }
   const addrs = getLocalAddresses();
   const preferred = addrs.find((a) => a.address.startsWith('192.168.'))
     || addrs.find((a) => a.address.startsWith('10.'))

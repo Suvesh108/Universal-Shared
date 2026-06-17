@@ -15,6 +15,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=3847
+      - HOST_IP=${HOST_IP:-}
 
 volumes:
   clipboard-data:

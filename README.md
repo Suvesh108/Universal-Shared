@@ -74,12 +74,33 @@ Open **http://YOUR_LAN_IP:3847** (shown in the terminal) on any device on the sa
 
 ### 4. Running via Docker
 
-Alternatively, you can run the entire application as a containerized service using Docker Compose:
+Alternatively, you can run the entire application as a containerized service using Docker Compose. 
 
+To ensure the pairing QR code and shared file URLs point to your host computer's correct LAN IP address (rather than the container's isolated internal IP), supply your local LAN IP using the `HOST_IP` environment variable:
+
+**Option A: Using a `.env` file (Recommended)**
+Create a file named `.env` in the root folder (next to `docker-compose.yml`) with your IP:
+```env
+HOST_IP=192.168.0.130
+```
+Then start the container:
 ```bash
-# Build and start the container
 docker-compose up -d --build
 ```
+
+**Option B: Set environment inline**
+- **In PowerShell:**
+  ```powershell
+  $env:HOST_IP="192.168.0.130"; docker-compose up -d --build
+  ```
+- **In CMD:**
+  ```cmd
+  set HOST_IP=192.168.0.130 && docker-compose up -d --build
+  ```
+- **In Linux / macOS Terminal:**
+  ```bash
+  HOST_IP=192.168.0.130 docker-compose up -d --build
+  ```
 
 - Port `3847` will be exposed.
 - All database files and media uploads will be stored securely and persist in a managed volume named `clipboard-data`.

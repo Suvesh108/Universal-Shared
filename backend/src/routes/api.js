@@ -90,8 +90,7 @@ export function createApiRouter(io, connectedSockets, server) {
     try {
       const code = randomCode();
       createPairingCode(code, Date.now() + PAIRING_CODE_TTL_MS);
-      const actualPort = currentPort();
-      const base = getPrimaryLocalUrl(actualPort);
+      const base = getBaseUrl(req);
       const pairUrl = `${base}?pair=${code}`;
       const qr = await QRCode.toDataURL(pairUrl, {
         margin: 2,
