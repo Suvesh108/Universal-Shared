@@ -100,5 +100,22 @@ if ($response -eq "Y" -or $response -eq "y") {
 }
 
 Write-Host ""
+if ($wifiIp) {
+    Write-Host "Configure WSL2/Docker Port Forwarding for IP $wifiIp?" -ForegroundColor Cyan
+    $response2 = Read-Host "Enter 'Y' to auto-forward incoming Wi-Fi traffic to Docker, or press Enter to skip"
+
+    if ($response2 -eq "Y" -or $response2 -eq "y") {
+        Write-Host "Configuring port forwarding rule..." -ForegroundColor Yellow
+        # Remove any stale port proxy rule for this port
+        netsh interface portproxy delete v4tov4 listenport=3847 listenaddress=$wifiIp | Out-Null
+        
+        # Add the port proxy forwarding rule
+        netsh interface portproxy add v4tov4 listenport=3847 listenaddress=$wifiIp connectport=3847 connectaddress=127.0.0.1
+        Write-Host "  [+] Port forwarding successfully configured!" -ForegroundColor Green
+        Write-Host "      Incoming Wi-Fi traffic on http://$wifiIp:3847 is now routed to 127.0.0.1:3847 (Docker)." -ForegroundColor Green
+    }
+}
+
+Write-Host ""
 Write-Host "Diagnostics complete. Press any key to exit..."
 [void][System.Console]::ReadKey($true)
