@@ -181,6 +181,7 @@ export default function App() {
         logout={logout}
         showAlert={showAlert}
         onToast={showToast}
+        serverInfo={serverInfo}
       />
 
       {toast && <div className="toast">{toast}</div>}

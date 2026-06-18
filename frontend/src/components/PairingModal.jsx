@@ -8,7 +8,6 @@ export default function PairingModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [customIp, setCustomIp] = useState(localStorage.getItem('custom_host_ip') || '');
 
   useEffect(() => {
     if (!open) return;
@@ -20,45 +19,10 @@ export default function PairingModal({ open, onClose }) {
         setQr(data.qr);
         setCode(data.code);
         setPairUrl(data.pairUrl);
-        // Pre-fill input if there isn't a custom IP already stored
-        if (!localStorage.getItem('custom_host_ip') && data.pairUrl) {
-          try {
-            const urlObj = new URL(data.pairUrl);
-            setCustomIp(urlObj.hostname);
-          } catch (e) {}
-        }
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [open]);
-
-  const handleUpdateIp = () => {
-    const trimmed = customIp.trim();
-    setLoading(true);
-    setError(null);
-
-    if (trimmed) {
-      localStorage.setItem('custom_host_ip', trimmed);
-    } else {
-      localStorage.removeItem('custom_host_ip');
-    }
-
-    api.updateSettings({ hostIp: trimmed })
-      .then(() => api.generatePairQr())
-      .then((data) => {
-        setQr(data.qr);
-        setCode(data.code);
-        setPairUrl(data.pairUrl);
-        if (data.pairUrl) {
-          try {
-            const urlObj = new URL(data.pairUrl);
-            setCustomIp(urlObj.hostname);
-          } catch (e) {}
-        }
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  };
 
   const handleCopy = () => {
     if (!pairUrl) return;
@@ -100,29 +64,9 @@ export default function PairingModal({ open, onClose }) {
               <code>{pairUrl}</code>
             </div>
 
-            <div className="ip-override-section">
-              <span className="label">Laptop LAN IP Address</span>
-              <div className="ip-override-input-group">
-                <input
-                  type="text"
-                  value={customIp}
-                  onChange={(e) => setCustomIp(e.target.value)}
-                  placeholder="e.g., 192.168.0.130"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleUpdateIp}
-                  disabled={loading}
-                >
-                  Update
-                </button>
-              </div>
-              <p className="ip-help-text">
-                If your phone cannot connect, make sure it is on the same Wi-Fi and enter your laptop's local Wi-Fi IP address here.
-              </p>
-            </div>
+            <p className="ip-help-text" style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+              If your phone cannot connect, make sure it is on the same Wi-Fi. You can verify or change the <strong>Wi-Fi IP Address</strong> under your <strong>Device Profile</strong> (top-right navbar profile).
+            </p>
             
             <button
               type="button"

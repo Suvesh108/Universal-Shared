@@ -1,16 +1,40 @@
 import { useState, useEffect } from 'react';
+import { api } from '../utils/api';
 
-export default function ProfileModal({ open, onClose, device, updateProfile, logout, showAlert, onToast }) {
+export default function ProfileModal({ open, onClose, device, updateProfile, logout, showAlert, onToast, serverInfo }) {
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState('unknown');
+  const [wifiIp, setWifiIp] = useState(localStorage.getItem('custom_host_ip') || '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (device && open) {
       setEditName(device.name);
       setEditType(device.type);
+
+      if (serverInfo && serverInfo.hostIpOverride) {
+        setWifiIp(serverInfo.hostIpOverride);
+      } else {
+        const saved = localStorage.getItem('custom_host_ip');
+        if (saved) {
+          setWifiIp(saved);
+        } else if (serverInfo && serverInfo.primaryUrl) {
+          try {
+            const urlObj = new URL(serverInfo.primaryUrl);
+            if (urlObj.hostname !== 'localhost' && urlObj.hostname !== '127.0.0.1' && !urlObj.hostname.startsWith('172.')) {
+              setWifiIp(urlObj.hostname);
+            } else {
+              setWifiIp('');
+            }
+          } catch (e) {
+            setWifiIp('');
+          }
+        } else {
+          setWifiIp('');
+        }
+      }
     }
-  }, [device, open]);
+  }, [device, open, serverInfo]);
 
   if (!open || !device) return null;
 
@@ -19,6 +43,15 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
     setSaving(true);
     try {
       await updateProfile({ name: editName, type: editType });
+
+      const trimmedIp = wifiIp.trim();
+      if (trimmedIp) {
+        localStorage.setItem('custom_host_ip', trimmedIp);
+      } else {
+        localStorage.removeItem('custom_host_ip');
+      }
+      await api.updateSettings({ hostIp: trimmedIp });
+
       onToast?.('Profile updated!');
       onClose();
     } catch (err) {
@@ -100,6 +133,30 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
               <option value="unknown">Other</option>
             </select>
           </label>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
+            Wi-Fi IP Address
+            <input
+              type="text"
+              value={wifiIp}
+              onChange={(e) => setWifiIp(e.target.value)}
+              placeholder="e.g., 192.168.0.130"
+              style={{
+                padding: '0.55rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text)',
+                fontSize: '0.95rem',
+                outline: 'none',
+                width: '100%',
+                fontFamily: 'ui-monospace, monospace'
+              }}
+            />
+          </label>
+          <p style={{ margin: '-0.5rem 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+            Enter your laptop's physical Wi-Fi IP address if you run inside Docker and your phone cannot connect. Leave blank to use auto-detected.
+          </p>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
             <button
