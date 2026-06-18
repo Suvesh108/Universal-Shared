@@ -35,6 +35,10 @@ export function getPrimaryLocalUrl(port = PORT) {
   if (process.env.PUBLIC_URL) {
     return process.env.PUBLIC_URL;
   }
+
+  if (process.env.HOST_IP) {
+    return `http://${process.env.HOST_IP}:${port}`;
+  }
   
   // Try reading persistent settings file for hostIp override
   try {
@@ -49,9 +53,6 @@ export function getPrimaryLocalUrl(port = PORT) {
     // Ignore settings read errors
   }
 
-  if (process.env.HOST_IP) {
-    return `http://${process.env.HOST_IP}:${port}`;
-  }
   const addrs = getLocalAddresses();
   const preferred = addrs.find((a) => a.address.startsWith('192.168.'))
     || addrs.find((a) => a.address.startsWith('10.'))
