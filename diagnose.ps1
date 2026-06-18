@@ -14,7 +14,11 @@ Write-Host ""
 
 # 1. Check OS and active Network Adapters
 Write-Host "[1] Checking active Network Adapters and IP Addresses..." -ForegroundColor Yellow
-$adapters = Get-NetIPAddress -InterfaceAddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "127.*" -and $_.IPAddress -notlike "169.254.*" }
+$adapters = Get-NetIPAddress -ErrorAction SilentlyContinue | Where-Object { 
+    ($_.AddressFamily -eq 'IPv4' -or $_.InterfaceAddressFamily -eq 'IPv4') -and 
+    $_.IPAddress -notlike "127.*" -and 
+    $_.IPAddress -notlike "169.254.*" 
+}
 $wifiIp = ""
 
 foreach ($ip in $adapters) {
