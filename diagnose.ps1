@@ -32,7 +32,7 @@ foreach ($ip in $adapters) {
     
     if ($isVirtual) {
         Write-Host "  [-] $adapterName : $($ip.IPAddress) (Virtual adapter - DO NOT USE)" -ForegroundColor Gray
-    } elseif ($adapterName -like "*Wi-Fi*" -or $adapterName -like "*Wireless*") {
+    } elseif ($adapterName -like "*Wi-Fi*" -or $adapterName -like "*WiFi*" -or $adapterName -like "*Wireless*") {
         Write-Host "  [+] $adapterName : $($ip.IPAddress) (Wi-Fi adapter - USE THIS ONE! 🌟)" -ForegroundColor Green
         $wifiIp = $ip.IPAddress
     } else {
