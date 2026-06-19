@@ -10,15 +10,16 @@ if %errorlevel% neq 0 (
 cls
 echo.
 echo ==========================================================
-echo   UNIVERSAL CLIPBOARD - PUBLIC NETWORK CONNECTION SETUP
+echo   UNIVERSAL CLIPBOARD - PERMANENT PUBLIC NETWORK SETUP
 echo ==========================================================
 echo.
-echo This script will configure sharing on a PUBLIC network:
-echo   [1] Apply Windows Firewall rule for port 3847 (Public/Private/Domain)
-echo   [2] Add port forwarding: 192.168.0.130:3847 --^> 127.0.0.1:3847
+echo This script will permanently configure sharing on Public/Hostel Wi-Fi:
+echo   [1] Apply Windows Firewall rule for port 3847 (Any network)
+echo   [2] Add PERMANENT port forwarding (0.0.0.0:3847 --^> 127.0.0.1:3847)
 echo.
-echo Note: This script will NOT change your network category. 
-echo       Your Wi-Fi will remain PUBLIC for safety in your hostel.
+echo Note: By listening on 0.0.0.0, Windows will forward traffic from ANY
+echo       IP your laptop gets. You won't need to run this admin tool again
+echo       when your Wi-Fi IP changes!
 echo.
 
 :: Step 1: Apply firewall rule for all profiles (Any)
@@ -31,13 +32,14 @@ if %errorlevel% equ 0 (
     echo     ERROR applying firewall rule.
 )
 
-:: Step 2: Add port proxy (Wi-Fi IP -> Docker localhost)
+:: Step 2: Add port proxy listening on all interfaces (0.0.0.0)
 echo.
-echo [2] Configuring port forwarding (192.168.0.130:3847 -^> 127.0.0.1:3847)...
-netsh interface portproxy delete v4tov4 listenport=3847 listenaddress=192.168.0.130 >nul 2>&1
-netsh interface portproxy add v4tov4 listenport=3847 listenaddress=192.168.0.130 connectport=3847 connectaddress=127.0.0.1
+echo [2] Configuring permanent port forwarding (0.0.0.0:3847 -^> 127.0.0.1:3847)...
+:: Delete any specific IP proxies first to prevent conflicts
+netsh interface portproxy delete v4tov4 listenport=3847 >nul 2>&1
+netsh interface portproxy add v4tov4 listenport=3847 listenaddress=0.0.0.0 connectport=3847 connectaddress=127.0.0.1
 if %errorlevel% equ 0 (
-    echo     SUCCESS! Port forwarding active.
+    echo     SUCCESS! Permanent port forwarding active.
 ) else (
     echo     ERROR applying port forwarding.
 )
@@ -50,8 +52,7 @@ netsh interface portproxy show v4tov4
 echo.
 echo ==========================================================
 echo   ALL DONE!
-echo   Open http://192.168.0.130:3847 on your phone
-echo   while connected to the hostel Wi-Fi network.
+echo   You have permanently enabled connection forwarding.
 echo ==========================================================
 echo.
 pause
