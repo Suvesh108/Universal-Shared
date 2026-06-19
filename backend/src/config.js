@@ -6,6 +6,29 @@ import fs from 'fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 
+// Load environment variables from .env file at the root level if present
+try {
+  const envPath = path.join(ROOT, '..', '.env');
+  if (fs.existsSync(envPath)) {
+    const envLines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    for (const line of envLines) {
+      const match = line.match(/^\s*([^#=]+)\s*=\s*(.*)?\s*$/);
+      if (match) {
+        const key = match[1].trim();
+        let val = match[2]?.trim() || '';
+        if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+        if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
+        // Set environment variable if not already set by the outer environment
+        if (process.env[key] === undefined) {
+          process.env[key] = val;
+        }
+      }
+    }
+  }
+} catch (err) {
+  // Ignore env read errors
+}
+
 export const PORT = Number(process.env.PORT) || 3847;
 export const HOST = process.env.HOST || '0.0.0.0';
 export const DATA_DIR = path.join(ROOT, 'data');
