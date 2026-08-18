@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
 import { DB_PATH, DATA_DIR, MAX_HISTORY } from './config.js';
 
@@ -9,6 +11,7 @@ try {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const JSON_STORE_PATH = path.join(DATA_DIR, 'store.json');
+const TOKEN_SECRET = process.env.TOKEN_SECRET || 'universal-clipboard-secret-key-2026';
 
 function getWasmPath() {
   const candidates = [
@@ -27,12 +30,49 @@ let db = null;
 let useJsonStore = false;
 let initPromise = null;
 
-// In-memory fallback data structures for serverless environments where WASM cannot be read
+// In-memory fallback data structures for serverless environments
 const jsonStore = {
   devices: new Map(),
   pairing_codes: new Map(),
   clipboard_items: [],
 };
+
+// ----------------- Stateless Device Token Engine -----------------
+
+export function createDeviceToken({ id, name, type, userAgent }) {
+  const payload = {
+    id,
+    name: String(name || 'Device').slice(0, 64),
+    type: type || 'unknown',
+    ua: String(userAgent || '').slice(0, 128),
+    ts: Date.now(),
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+export function parseDeviceToken(token) {
+  if (!token || typeof token !== 'string' || !token.includes('.')) return null;
+  const [data, sig] = token.split('.');
+  if (!data || !sig) return null;
+  const expectedSig = crypto.createHmac('sha256', TOKEN_SECRET).update(data).digest('base64url');
+  if (sig !== expectedSig) return null;
+  try {
+    const raw = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: raw.type,
+      userAgent: raw.ua,
+      pairedAt: raw.ts,
+      lastSeen: Date.now(),
+      token: token,
+    };
+  } catch (e) {
+    return null;
+  }
+}
 
 function loadJsonStore() {
   try {
@@ -128,7 +168,7 @@ export async function initDb() {
     try {
       const wasmPath = getWasmPath();
       if (!wasmPath) {
-        throw new Error('sql-wasm.wasm file not found on disk, using memory store fallback');
+        throw new Error('sql-wasm.wasm not available, using JSON/memory store');
       }
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs({ locateFile: () => wasmPath });
@@ -144,7 +184,7 @@ export async function initDb() {
       runMigrations();
       return db;
     } catch (err) {
-      console.warn('[db] SQLite initialization failed or running in serverless environment. Using fast JSON/Memory storage engine:', err.message);
+      console.warn('[db] Running in fast JSON/Memory storage mode:', err.message);
       useJsonStore = true;
       loadJsonStore();
       return jsonStore;
@@ -180,49 +220,78 @@ function execute(sql, params = []) {
 // ----------------- Devices -----------------
 
 export function createDevice({ id, name, type, token, userAgent }) {
+  const deviceId = id || uuidv4();
+  const deviceToken = token || createDeviceToken({ id: deviceId, name, type, userAgent });
   const now = Date.now();
   const device = {
-    id,
-    name: String(name).slice(0, 64),
+    id: deviceId,
+    name: String(name || 'Device').slice(0, 64),
     type: type || 'unknown',
-    token,
+    token: deviceToken,
     userAgent: userAgent || null,
     pairedAt: now,
     lastSeen: now,
   };
 
   if (useJsonStore || !db) {
-    jsonStore.devices.set(id, device);
+    jsonStore.devices.set(deviceId, device);
     persistJsonStore();
     return device;
   }
 
-  execute(
-    `INSERT INTO devices (id, name, type, token, user_agent, paired_at, last_seen)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, device.name, device.type, token, device.userAgent, now, now],
-  );
-  return getDeviceByToken(token);
+  try {
+    execute(
+      `INSERT OR REPLACE INTO devices (id, name, type, token, user_agent, paired_at, last_seen)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [deviceId, device.name, device.type, deviceToken, device.userAgent, now, now],
+    );
+  } catch (e) {}
+
+  return getDeviceByToken(deviceToken) || device;
 }
 
 export function getDeviceByToken(token) {
+  if (!token) return null;
+
+  // 1. Check in-memory store
   if (useJsonStore || !db) {
     for (const d of jsonStore.devices.values()) {
       if (d.token === token) return d;
     }
-    return null;
+  } else {
+    const row = queryOne('SELECT * FROM devices WHERE token = ?', [token]);
+    if (row) {
+      return {
+        id: row.id,
+        name: row.name,
+        type: row.type,
+        token: row.token,
+        userAgent: row.user_agent,
+        pairedAt: row.paired_at,
+        lastSeen: row.last_seen,
+      };
+    }
   }
-  const row = queryOne('SELECT * FROM devices WHERE token = ?', [token]);
-  if (!row) return null;
-  return {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    token: row.token,
-    userAgent: row.user_agent,
-    pairedAt: row.paired_at,
-    lastSeen: row.last_seen,
-  };
+
+  // 2. Stateless / Serverless Token Decoding fallback (guarantees cross-lambda auth)
+  const statelessDevice = parseDeviceToken(token);
+  if (statelessDevice) {
+    if (useJsonStore || !db) {
+      jsonStore.devices.set(statelessDevice.id, statelessDevice);
+      persistJsonStore();
+    } else {
+      try {
+        execute(
+          `INSERT OR REPLACE INTO devices (id, name, type, token, user_agent, paired_at, last_seen)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [statelessDevice.id, statelessDevice.name, statelessDevice.type, statelessDevice.token, statelessDevice.userAgent, statelessDevice.pairedAt, statelessDevice.lastSeen],
+        );
+      } catch (e) {}
+    }
+    return statelessDevice;
+  }
+
+  return null;
 }
 
 export function getDeviceById(id) {
@@ -337,7 +406,7 @@ export function consumePairingCode(code) {
 
 export function addClipboardItem(item) {
   const newItem = {
-    id: item.id,
+    id: item.id || uuidv4(),
     deviceId: item.deviceId,
     deviceName: item.deviceName,
     type: item.type,

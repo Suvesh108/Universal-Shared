@@ -169,12 +169,9 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       return res.status(400).json({ error: 'Invalid or expired pairing code' });
     }
 
-    const token = uuidv4();
     const device = createDevice({
-      id: uuidv4(),
       name: String(name).slice(0, 64),
       type: type || 'unknown',
-      token,
       userAgent: userAgent || req.headers['user-agent'],
     });
 
@@ -187,12 +184,9 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       return res.status(400).json({ error: 'name is required' });
     }
 
-    const token = uuidv4();
     const device = createDevice({
-      id: uuidv4(),
       name: String(name).slice(0, 64),
       type: type || 'unknown',
-      token,
       userAgent: userAgent || req.headers['user-agent'],
     });
 

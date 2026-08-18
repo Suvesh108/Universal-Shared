@@ -57,7 +57,7 @@ export function useDevice() {
 
   useEffect(() => {
     const handleAuthFailed = () => {
-      logout();
+      console.warn('Authentication 401 notice received');
     };
     window.addEventListener('auth-failed', handleAuthFailed);
     return () => window.removeEventListener('auth-failed', handleAuthFailed);
