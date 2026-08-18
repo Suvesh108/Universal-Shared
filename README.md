@@ -1,154 +1,125 @@
-# Universal Clipboard
+# US • Universal Shared
 
-Self-hosted clipboard sync for personal use. Sync text, links, images, files, and videos across devices on your local Wi-Fi — **no Firebase, no Supabase, no cloud, no internet required**.
+<div align="center">
+  <img src="frontend/public/logo.svg" width="120" height="120" alt="US Logo" />
+  <h3>Universal Shared — Instant Real-Time Cross-Device Clipboard & File Sharing</h3>
+  <p>Seamlessly share text, links, images, videos, PDFs, and files across all your phones, tablets, and computers.</p>
+</div>
 
-Designed for a **Windows 11 laptop** running the server and **Android phones** connecting via the mobile browser.
+---
 
-## Features
+## ✨ Features
 
-- Real-time clipboard sync over WebSocket (Socket.io)
-- Text, links, images, videos, and unrestricted support for **all file formats** (PDF, ZIP, docs, spreadsheets, etc.)
-- Clipboard history styled as a WhatsApp-style chat bubble log (Left = Sent, Right = Received)
-- **Expand/Collapse (Maximize) View** to enlarge history log to full page for easy reading/downloading
-- **Device Profile settings in Navbar** to rename or change device types on the fly
-- Clipboard history stored in local SQLite database
-- Device discovery (active, idle, offline statuses) excluding current device to prevent redundancies
-- QR code pairing for new devices
-- Drag-and-drop file uploads with active progress bars
-- Glassmorphic dark / light theme (Monochrome & Pure Obsidian style with Electric Indigo accents)
-- Auto-logout interception if browser device tokens become stale or invalid
-- Responsive custom top-center glassmorphic popups replacing default blocking browser alerts
-- Fully responsive layout optimized for desktop, tablet, and mobile screens (clean stacked list view on mobile)
+- ⚡ **Real-Time Cross-Device Sync**: Instant clipboard updates across devices using a hybrid sync engine (WebSockets for local environments & Smart Polling for serverless deployments).
+- 📁 **Universal File & Media Support**: Transfer text, URLs, screenshots, photos, videos, PDFs, ZIPs, and documents up to 100MB with progress tracking.
+- 📱 **Instant QR & PIN Pairing**: Pair secondary phones, tablets, or laptops in seconds by scanning a QR code or entering a 6-character code.
+- ☁️ **Deploy Anywhere**:
+  - **Vercel Serverless**: 1-click cloud deployment with zero server maintenance.
+  - **Local Node.js Server**: Self-hosted on your local Wi-Fi with auto-configured Windows firewall rules.
+  - **Docker Compose**: Containerized single-command execution.
+- 🔐 **Stateless Device Authentication**: Cryptographically signed HMAC-SHA256 device tokens guarantee seamless cross-container authentication across serverless lambdas.
+- 💬 **WhatsApp-Style Chat History**: Clean bubble-style clipboard log with sender badges, previews, quick copy, and full-screen maximization view.
+- 🎨 **Obsidian Glassmorphic UI**: Premium responsive interface with dark/light themes, sleek animations, and custom modal dialogs.
 
-## Architecture
+---
 
+## 🏛️ Architecture
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    US • Universal Shared                     │
+└─────────────────────────────────────────────────────────────┘
+                               │
+       ┌───────────────────────┴───────────────────────┐
+       ▼                                               ▼
+┌──────────────────────────────┐        ┌──────────────────────────────┐
+│       Cloud Deployment       │        │       Local Deployment       │
+│     (Vercel Serverless)      │        │       (Node.js / Docker)     │
+├──────────────────────────────┤        ├──────────────────────────────┤
+│ • /api Serverless Functions  │        │ • Express + Socket.io Server │
+│ • Smart Polling REST Sync    │        │ • Low-latency WebSockets     │
+│ • Cross-Container File Cache │        │ • Local SQLite & /uploads    │
+│ • Global HTTPS Domain Access │        │ • Windows Auto-Firewall Rule │
+└──────────────────────────────┘        └──────────────────────────────┘
+                               │
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+       ┌───────────────┐               ┌───────────────┐
+       │   PC / Mac    │◄─── Sync ───►│  Phone/Tablet │
+       │  (Desktop UI) │               │  (Mobile Web) │
+       └───────────────┘               └───────────────┘
 ```
-Windows 11 (server)                    Android (client)
-┌─────────────────────┐               ┌─────────────────────┐
-│  Node.js + Express  │◄── Wi-Fi ────►│  Chrome / browser   │
-│  Socket.io          │   LAN only    │  React UI           │
-│  SQLite + uploads/  │               │                     │
-└─────────────────────┘               └─────────────────────┘
-         │
-    All data stays on your laptop
-    (backend/data/clipboard.db)
-```
 
-## Quick start
+---
 
-### 1. Install dependencies
+## 🚀 Deployment Options
 
-```powershell
-cd "c:\Users\Suvesh\Desktop\universal shared"
+### Option 1: Deploy to Vercel (Recommended for Cloud)
+
+1. Push this repository to your GitHub account.
+2. Go to [Vercel Dashboard](https://vercel.com/new) and import the **`Universal-Shared`** repository.
+3. Keep default settings (`vercel.json` will automatically configure routing and build).
+4. Click **Deploy**.
+5. Open your public Vercel URL, click **Pair Device**, and scan the QR code from any phone anywhere in the world!
+
+---
+
+### Option 2: Run Locally on Windows / Mac / Linux
+
+#### 1. Install dependencies
+```bash
 npm run install:all
 ```
 
-### 2. Development (two terminals or one command)
-
-**Option A — run both together:**
-
-```powershell
-npm install
+#### 2. Start Development Server
+```bash
 npm run dev
 ```
+> *On Windows, the startup script automatically verifies your local Wi-Fi IP and configures Windows Defender Firewall rules for port 3847 and 5173.*
 
-**Option B — separate terminals:**
-
-```powershell
-# Terminal 1 — backend (port 3847)
-npm run server
-
-# Terminal 2 — frontend (port 5173, proxies to backend)
-npm run client
-```
-
-Open **http://localhost:5173** on your Windows PC.
-
-### 3. Production (single server on laptop)
-
-```powershell
-npm run start
-```
-
-Open **http://YOUR_LAN_IP:3847** (shown in the terminal) on any device on the same Wi-Fi.
-
-### 4. Running via Docker
-
-Alternatively, you can run the entire application as a containerized service using Docker Compose. 
-
-To ensure the pairing QR code and shared file URLs point to your host computer's correct LAN IP address (rather than the container's isolated internal IP), supply your local LAN IP using the `HOST_IP` environment variable:
-
-**Option A: Using a `.env` file (Recommended)**
-Create a file named `.env` in the root folder (next to `docker-compose.yml`) with your IP:
-```env
-HOST_IP=192.168.0.130
-```
-Then start the container:
+#### 3. Production Build & Start
 ```bash
-docker-compose up -d --build
+npm start
 ```
+Open the URL printed in your terminal (e.g. `http://YOUR_WIFI_IP:3847`) on your phone or computer.
 
-**Option B: Set environment inline**
-- **In PowerShell:**
-  ```powershell
-  $env:HOST_IP="192.168.0.130"; docker-compose up -d --build
-  ```
-- **In CMD:**
-  ```cmd
-  set HOST_IP=192.168.0.130 && docker-compose up -d --build
-  ```
-- **In Linux / macOS Terminal:**
-  ```bash
-  HOST_IP=192.168.0.130 docker-compose up -d --build
-  ```
+---
 
-- Port `3847` will be exposed.
-- All database files and media uploads will be stored securely and persist in a managed volume named `clipboard-data`.
+### Option 3: Run with Docker Compose
 
-To stop the container:
-```bash
-docker-compose down
-```
+1. Create a `.env` file in the project root:
+   ```env
+   HOST_IP=192.168.0.124
+   ```
+2. Start the container:
+   ```bash
+   docker-compose up -d --build
+   ```
+3. To stop:
+   ```bash
+   docker-compose down
+   ```
 
-## Pairing a phone
+---
 
-1. On Windows, open the app and click **Start on this device** (name it e.g. "Windows PC").
-2. Click **Pair device** to show a QR code and 6-character code.
-3. On your Android phone (same Wi-Fi), scan the QR or open the URL manually.
-   - *Docker/LAN Note:* If the QR connection fails on mobile, open your **Device Profile** (click the profile icon in the top-right navbar), enter your laptop's actual Wi-Fi IP (e.g., `192.168.0.130`) into the **Wi-Fi IP Address** input, and save. This regenerates the QR code and all shared connections to target your physical laptop IP.
-4. Choose **Join with code**, enter the code, and name your phone.
+## 📱 How to Pair Devices
 
-## Usage
+1. Open the application on your primary device and enter a device name (e.g. *"MacBook Pro"* or *"Windows PC"*).
+2. Click **Pair device** in the top navbar to display your unique QR code and 6-character PIN.
+3. On your phone or secondary computer, scan the QR code or navigate to the connection URL.
+4. Tap **Join with code**, enter the PIN, and start sharing immediately!
 
-- **Send text/links:** Type or paste in the input box, or tap **Paste & send**.
-- **Send files:** Drag and drop onto the drop zone, or tap **Upload file**.
-- **Receive:** New items appear in history; text/links are auto-copied when possible.
-- **History:** Browse, copy, or delete past clipboard items.
+---
 
-## Windows firewall
+## 🛠️ Tech Stack
 
-If your phone cannot connect, allow inbound TCP port **3847** on your private network:
+- **Frontend**: React 18, Vite 6, Socket.io Client, CSS3 Custom Properties (Glassmorphic Design)
+- **Backend**: Node.js, Express, Socket.io, Multer, QRCode
+- **Storage**: Dual SQLite (`sql.js`) & In-Memory JSON Cache with serverless cross-container restoration
+- **Security**: HMAC-SHA256 Signed Device Tokens & Ephemeral Memory Buffers
 
-```powershell
-New-NetFirewallRule -DisplayName "Universal Clipboard" -Direction Inbound -Protocol TCP -LocalPort 3847 -Action Allow -Profile Private
-```
+---
 
-## Data storage
+## 📄 License
 
-| Path | Purpose |
-|------|---------|
-| `backend/data/clipboard.db` | SQLite database (history, devices) |
-| `backend/data/uploads/` | Uploaded images, files, videos |
-
-Delete these folders to reset all data.
-
-## Tech stack
-
-- **Frontend:** React 18, Vite 6
-- **Backend:** Node.js, Express, Socket.io
-- **Database:** SQLite via sql.js (local file, no native build tools required)
-- **Uploads:** Multer (local disk)
-
-## Security note
-
-This app is intended for **personal use on a trusted home network**. It has no authentication beyond device pairing tokens stored in the browser. Do not expose port 3847 to the public internet.
+MIT License — Feel free to use, modify, and distribute for personal and commercial projects.

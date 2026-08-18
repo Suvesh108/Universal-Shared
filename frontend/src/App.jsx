@@ -163,9 +163,9 @@ export default function App() {
           <aside className="main-sidebar">
             <DeviceList token={device.token} currentDeviceId={device.id} showConfirm={showConfirm} showAlert={showAlert} />
             <section className="card info-card">
-              <h2>Safe & Private</h2>
+              <h2>Universal Shared</h2>
               <p className="muted">
-                Everything runs locally on your Wi-Fi network. No accounts, no cloud servers, and no internet connection needed. Your copied items never leave your home network.
+                Seamless real-time clipboard & file sync across all your devices. Instant QR pairing, cross-platform compatibility, and zero-configuration sharing.
               </p>
             </section>
           </aside>

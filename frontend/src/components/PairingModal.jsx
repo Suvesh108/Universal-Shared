@@ -43,7 +43,7 @@ export default function PairingModal({ open, onClose }) {
         </div>
 
         <p className="modal-desc">
-          Scan this QR code with your Android/iOS phone (on the same Wi-Fi) or copy the URL below to pair instantly.
+          Scan this QR code with your phone or copy the URL below to pair your devices instantly.
         </p>
 
         {loading && <div className="spinner">Generating pairing key...</div>}
@@ -66,7 +66,7 @@ export default function PairingModal({ open, onClose }) {
             </div>
 
             <p className="ip-help-text" style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-              If your phone cannot connect, make sure it is on the same Wi-Fi. You can verify or change the <strong>Wi-Fi IP Address</strong> under your <strong>Device Profile</strong> (top-right navbar profile).
+              Open this link on your phone, tablet, or secondary computer to start syncing immediately.
             </p>
             
             <button
@@ -95,7 +95,7 @@ export default function PairingModal({ open, onClose }) {
           </div>
         )}
 
-        <p className="modal-footnote">Code expires in 10 minutes. All clipboard transfers stay completely private on your local network.</p>
+        <p className="modal-footnote">Code expires in 10 minutes. Transfers are synchronized securely across your paired devices.</p>
       </div>
     </div>
   );
