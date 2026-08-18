@@ -16,9 +16,13 @@ export default function PairingModal({ open, onClose }) {
     setCopied(false);
     api.generatePairQr()
       .then((data) => {
+        let finalPairUrl = data.pairUrl;
+        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          finalPairUrl = `${window.location.origin}?pair=${data.code}`;
+        }
         setQr(data.qr);
         setCode(data.code);
-        setPairUrl(data.pairUrl);
+        setPairUrl(finalPairUrl);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));

@@ -4,17 +4,37 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { DB_PATH, DATA_DIR, MAX_HISTORY } from './config.js';
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (e) {}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const wasmPath = path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm');
+
+function getWasmPath() {
+  const candidates = [
+    path.join(__dirname, '../node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.join(__dirname, '../../node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
+    path.join(process.cwd(), 'backend/node_modules/sql.js/dist/sql-wasm.wasm'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm');
+}
 
 let db = null;
+let initPromise = null;
 
 function persist() {
   if (!db) return;
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const data = db.export();
+    fs.writeFileSync(DB_PATH, Buffer.from(data));
+  } catch (e) {
+    // In-memory fallback if persistence fails on serverless filesystem
+  }
 }
 
 function runMigrations() {
@@ -56,14 +76,30 @@ function runMigrations() {
 }
 
 export async function initDb() {
-  const SQL = await initSqlJs({ locateFile: () => wasmPath });
-  if (fs.existsSync(DB_PATH)) {
-    db = new SQL.Database(fs.readFileSync(DB_PATH));
-  } else {
-    db = new SQL.Database();
-  }
-  runMigrations();
-  return db;
+  if (db) return db;
+  if (initPromise) return initPromise;
+
+  initPromise = (async () => {
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    } catch (e) {}
+
+    const wasmPath = getWasmPath();
+    const SQL = await initSqlJs({ locateFile: () => wasmPath });
+    if (fs.existsSync(DB_PATH)) {
+      try {
+        db = new SQL.Database(fs.readFileSync(DB_PATH));
+      } catch (e) {
+        db = new SQL.Database();
+      }
+    } else {
+      db = new SQL.Database();
+    }
+    runMigrations();
+    return db;
+  })();
+
+  return initPromise;
 }
 
 function rowToDevice(row) {

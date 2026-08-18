@@ -31,8 +31,9 @@ try {
 
 export const PORT = Number(process.env.PORT) || 3847;
 export const HOST = process.env.HOST || '0.0.0.0';
-export const DATA_DIR = path.join(ROOT, 'data');
-export const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+export const IS_SERVERLESS = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.NOW_REGION);
+export const DATA_DIR = process.env.DATA_DIR || (IS_SERVERLESS ? path.join(os.tmpdir(), 'universal-clipboard-data') : path.join(ROOT, 'data'));
+export const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(DATA_DIR, 'uploads');
 export const DB_PATH = path.join(DATA_DIR, 'clipboard.db');
 export const MAX_HISTORY = 500;
 export const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -55,6 +56,10 @@ export function getLocalAddresses() {
 }
 
 export function getPrimaryLocalUrl(port = PORT) {
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
   if (process.env.PUBLIC_URL) {
     return process.env.PUBLIC_URL;
   }

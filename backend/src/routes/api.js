@@ -30,13 +30,20 @@ import {
 } from '../db.js';
 import { detectType, serializeItem } from '../clipboard.js';
 
-fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+try {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+} catch (e) {}
 
 const storage = multer.diskStorage({
-  destination: UPLOADS_DIR,
+  destination: (_req, _file, cb) => {
+    try {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    } catch (e) {}
+    cb(null, UPLOADS_DIR);
+  },
   filename: (_req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}-${file.originalname}`);
+    cb(null, `${unique}-${file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_')}`);
   },
 });
 
@@ -62,20 +69,30 @@ function randomCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
-export function createApiRouter(io, connectedSockets, server) {
+export function createApiRouter(io = null, connectedSockets = null, server = null) {
   const router = Router();
+  const socketEmitter = io || { emit: () => {} };
+  const onlineMap = connectedSockets || new Map();
 
-  const currentPort = () => server.address()?.port || PORT;
+  const currentPort = () => server?.address?.()?.port || PORT;
 
   const getBaseUrl = (req) => {
-    // Always use HOST_IP / PUBLIC_URL env var if explicitly set (Docker, tunnels, etc.)
+    // 1. Explicit environment variable overrides
     if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
     if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
+
+    // 2. Vercel / Proxy headers
+    const forwardedHost = req.headers['x-forwarded-host'];
+    const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
+    if (forwardedHost) {
+      return `${forwardedProto}://${forwardedHost}`;
+    }
 
     const hostHeader = req.get('host') || '';
     const hostOnly = hostHeader.split(':')[0];
 
-    // Fall back to primary LAN IP if host is loopback or Docker bridge (172.x.x.x / 10.x.x.x internal)
+    // 3. Fall back to primary LAN IP if host is loopback or Docker bridge
     const isLoopback = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '[::1]';
     const isDockerInternal = /^172\.(1[6-9]|2\d|3[01])\./.test(hostOnly) || hostOnly.startsWith('10.');
 
@@ -105,7 +122,7 @@ export function createApiRouter(io, connectedSockets, server) {
       port: actualPort,
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),
-      onlineDevices: connectedSockets.size,
+      onlineDevices: onlineMap.size,
       hostIpOverride,
     });
   });
@@ -187,7 +204,7 @@ export function createApiRouter(io, connectedSockets, server) {
     const devices = listDevices().map((d) => ({
       ...d,
       token: undefined,
-      online: connectedSockets.has(d.id),
+      online: onlineMap.has(d.id),
       stale: now - d.lastSeen > DEVICE_STALE_MS,
     }));
     res.json({ devices });
@@ -245,7 +262,7 @@ export function createApiRouter(io, connectedSockets, server) {
 
     const baseUrl = getBaseUrl(req);
     const payload = serializeItem(item, baseUrl);
-    io.emit('clipboard:new', payload);
+    socketEmitter.emit('clipboard:new', payload);
     res.json({ item: payload });
   });
 
@@ -274,7 +291,7 @@ export function createApiRouter(io, connectedSockets, server) {
 
     const baseUrl = getBaseUrl(req);
     const payload = serializeItem(item, baseUrl);
-    io.emit('clipboard:new', payload);
+    socketEmitter.emit('clipboard:new', payload);
     res.json({ item: payload });
   });
 
@@ -296,16 +313,18 @@ export function createApiRouter(io, connectedSockets, server) {
     const item = getClipboardItem(req.params.id);
     if (item?.filePath) {
       const filePath = path.join(UPLOADS_DIR, item.filePath);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      } catch (e) {}
     }
     deleteClipboardItem(req.params.id);
-    io.emit('clipboard:deleted', { id: req.params.id });
+    socketEmitter.emit('clipboard:deleted', { id: req.params.id });
     res.json({ ok: true });
   });
 
   router.delete('/history', authDevice, (_req, res) => {
     clearClipboardHistory();
-    io.emit('clipboard:cleared');
+    socketEmitter.emit('clipboard:cleared');
     res.json({ ok: true });
   });
 

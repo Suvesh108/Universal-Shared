@@ -18,8 +18,8 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
           <div className="header-sub">
             <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
             <span>{connected ? 'Connected' : 'Offline'}</span>
-            {serverInfo?.primaryUrl && (
-              <span className="server-url">{serverInfo.primaryUrl}</span>
+            {(serverInfo?.primaryUrl || (typeof window !== 'undefined' && window.location.origin)) && (
+              <span className="server-url">{serverInfo?.primaryUrl || window.location.origin}</span>
             )}
           </div>
         </div>
@@ -89,15 +89,13 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
             </svg>
           </div>
           <h1>Universal Clipboard</h1>
-          <p>Self-hosted clipboard sync over your local Wi-Fi. No cloud. No internet required.</p>
+          <p>Instant clipboard sync across all your devices. Fast, private, and seamless.</p>
         </div>
 
-        {serverInfo && (
-          <div className="setup-server">
-            <span className="label">Server Local URL</span>
-            <code>{serverInfo.primaryUrl}</code>
-          </div>
-        )}
+        <div className="setup-server">
+          <span className="label">App Connection URL</span>
+          <code>{serverInfo?.primaryUrl || (typeof window !== 'undefined' ? window.location.origin : '')}</code>
+        </div>
 
         <div className="mode-tabs">
           <button
