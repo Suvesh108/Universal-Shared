@@ -277,12 +277,23 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       fileName: req.file.originalname,
     });
 
+    let fileBase64 = null;
+    try {
+      if (req.file.path && fs.existsSync(req.file.path)) {
+        fileBase64 = fs.readFileSync(req.file.path).toString('base64');
+      } else if (req.file.buffer) {
+        fileBase64 = req.file.buffer.toString('base64');
+      }
+    } catch (e) {
+      console.warn('Could not read upload buffer:', e.message);
+    }
+
     const item = addClipboardItem({
       id: uuidv4(),
       deviceId: req.device.id,
       deviceName: req.device.name,
       type,
-      content: null,
+      content: fileBase64,
       filePath: req.file.filename,
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
@@ -298,16 +309,41 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
   router.get('/files/:id', (req, res) => {
     const item = getClipboardItem(req.params.id);
-    if (!item?.filePath) {
+    if (!item) {
       return res.status(404).json({ error: 'File not found' });
     }
-    const filePath = path.join(UPLOADS_DIR, item.filePath);
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File missing on disk' });
+
+    const mimeType = item.mimeType || 'application/octet-stream';
+    const fileName = item.fileName || 'download';
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+
+    // 1. If file exists on current container disk, stream it directly
+    if (item.filePath) {
+      const filePath = path.join(UPLOADS_DIR, item.filePath);
+      if (fs.existsSync(filePath)) {
+        return fs.createReadStream(filePath).pipe(res);
+      }
     }
-    res.setHeader('Content-Type', item.mimeType || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `inline; filename="${item.fileName || 'file'}"`);
-    fs.createReadStream(filePath).pipe(res);
+
+    // 2. If file missing from current container disk, serve from base64 content
+    if (item.content) {
+      try {
+        const buffer = Buffer.from(item.content, 'base64');
+        if (item.filePath) {
+          try {
+            fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+            fs.writeFileSync(path.join(UPLOADS_DIR, item.filePath), buffer);
+          } catch (e) {}
+        }
+        return res.end(buffer);
+      } catch (e) {
+        console.error('Error serving file buffer:', e.message);
+      }
+    }
+
+    return res.status(404).json({ error: 'File missing on disk' });
   });
 
   router.delete('/history/:id', authDevice, (req, res) => {
