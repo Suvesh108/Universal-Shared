@@ -6,15 +6,11 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
   return (
     <header className="header">
       <div className="header-brand">
-        <div className="header-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" fill="currentColor"/>
-            <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-          </svg>
+        <div className="header-icon" style={{ padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}>
+          <img src="/logo.svg" alt="US Logo" width="36" height="36" style={{ borderRadius: '9px', display: 'block' }} />
         </div>
         <div>
-          <h1>Universal Clipboard</h1>
+          <h1>Universal Shared</h1>
           <div className="header-sub">
             <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
             <span>{connected ? 'Connected' : 'Offline'}</span>
@@ -81,15 +77,11 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
     <div className="setup-screen">
       <div className="setup-card">
         <div className="setup-hero">
-          <div className="setup-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ color: 'var(--accent)' }}>
-              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" fill="currentColor"/>
-              <path d="M9 12h6M9 16h4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
-            </svg>
+          <div className="setup-icon" style={{ padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}>
+            <img src="/logo.svg" alt="US Logo" width="68" height="68" style={{ borderRadius: '16px', display: 'block', boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)' }} />
           </div>
-          <h1>Universal Clipboard</h1>
-          <p>Instant clipboard sync across all your devices. Fast, private, and seamless.</p>
+          <h1>Universal Shared</h1>
+          <p>Instant clipboard & file sharing across all your devices. Fast, private, and seamless.</p>
         </div>
 
         <div className="setup-server">
