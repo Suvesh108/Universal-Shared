@@ -14,15 +14,12 @@ export default function PairingModal({ open, onClose }) {
     setLoading(true);
     setError(null);
     setCopied(false);
-    api.generatePairQr()
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    api.generatePairQr(origin)
       .then((data) => {
-        let finalPairUrl = data.pairUrl;
-        if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-          finalPairUrl = `${window.location.origin}?pair=${data.code}`;
-        }
         setQr(data.qr);
         setCode(data.code);
-        setPairUrl(finalPairUrl);
+        setPairUrl(data.pairUrl);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));

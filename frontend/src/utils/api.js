@@ -23,7 +23,10 @@ export const api = {
       body: JSON.stringify(settings),
     }).then(parseJson),
 
-  generatePairQr: () => fetch('/api/pair/qr').then(parseJson),
+  generatePairQr: (origin) => {
+    const url = '/api/pair/qr' + (origin ? `?origin=${encodeURIComponent(origin)}` : '');
+    return fetch(url).then(parseJson);
+  },
 
   verifyPair: (body) =>
     fetch('/api/pair/verify', {

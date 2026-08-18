@@ -77,22 +77,29 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
   const currentPort = () => server?.address?.()?.port || PORT;
 
   const getBaseUrl = (req) => {
-    // 1. Explicit environment variable overrides
+    // 1. Client origin passed from frontend
+    if (req.query?.origin && (req.query.origin.startsWith('http://') || req.query.origin.startsWith('https://'))) {
+      return req.query.origin;
+    }
+
+    // 2. Explicit environment variable overrides
     if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
-    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
     if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
 
-    // 2. Vercel / Proxy headers
+    // 3. Vercel / Proxy forwarded headers
     const forwardedHost = req.headers['x-forwarded-host'];
     const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
     if (forwardedHost) {
       return `${forwardedProto}://${forwardedHost}`;
     }
 
+    // 4. VERCEL_URL fallback
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
     const hostHeader = req.get('host') || '';
     const hostOnly = hostHeader.split(':')[0];
 
-    // 3. Fall back to primary LAN IP if host is loopback or Docker bridge
+    // 5. Fall back to primary LAN IP if host is loopback or Docker bridge
     const isLoopback = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '[::1]';
     const isDockerInternal = /^172\.(1[6-9]|2\d|3[01])\./.test(hostOnly) || hostOnly.startsWith('10.');
 
