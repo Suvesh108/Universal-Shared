@@ -1,4 +1,3 @@
-import initSqlJs from 'sql.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -9,6 +8,7 @@ try {
 } catch (e) {}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const JSON_STORE_PATH = path.join(DATA_DIR, 'store.json');
 
 function getWasmPath() {
   const candidates = [
@@ -20,20 +20,61 @@ function getWasmPath() {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
-  return path.join(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm');
+  return null;
 }
 
 let db = null;
+let useJsonStore = false;
 let initPromise = null;
 
-function persist() {
+// In-memory fallback data structures for serverless environments where WASM cannot be read
+const jsonStore = {
+  devices: new Map(),
+  pairing_codes: new Map(),
+  clipboard_items: [],
+};
+
+function loadJsonStore() {
+  try {
+    if (fs.existsSync(JSON_STORE_PATH)) {
+      const raw = JSON.parse(fs.readFileSync(JSON_STORE_PATH, 'utf8'));
+      if (Array.isArray(raw.devices)) {
+        for (const d of raw.devices) jsonStore.devices.set(d.id, d);
+      }
+      if (Array.isArray(raw.pairing_codes)) {
+        for (const p of raw.pairing_codes) jsonStore.pairing_codes.set(p.code, p);
+      }
+      if (Array.isArray(raw.clipboard_items)) {
+        jsonStore.clipboard_items = raw.clipboard_items;
+      }
+    }
+  } catch (e) {
+    // Ignore read errors
+  }
+}
+
+function persistJsonStore() {
+  try {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    const payload = {
+      devices: Array.from(jsonStore.devices.values()),
+      pairing_codes: Array.from(jsonStore.pairing_codes.values()),
+      clipboard_items: jsonStore.clipboard_items,
+    };
+    fs.writeFileSync(JSON_STORE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+  } catch (e) {
+    // Ignore write errors in ephemeral environments
+  }
+}
+
+function persistSql() {
   if (!db) return;
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const data = db.export();
     fs.writeFileSync(DB_PATH, Buffer.from(data));
   } catch (e) {
-    // In-memory fallback if persistence fails on serverless filesystem
+    // In-memory fallback
   }
 }
 
@@ -72,11 +113,11 @@ function runMigrations() {
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_clipboard_created ON clipboard_items(created_at DESC)');
   db.run('CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen DESC)');
-  persist();
+  persistSql();
 }
 
 export async function initDb() {
-  if (db) return db;
+  if (db || useJsonStore) return db || jsonStore;
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
@@ -84,54 +125,37 @@ export async function initDb() {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     } catch (e) {}
 
-    const wasmPath = getWasmPath();
-    const SQL = await initSqlJs({ locateFile: () => wasmPath });
-    if (fs.existsSync(DB_PATH)) {
-      try {
-        db = new SQL.Database(fs.readFileSync(DB_PATH));
-      } catch (e) {
+    try {
+      const wasmPath = getWasmPath();
+      if (!wasmPath) {
+        throw new Error('sql-wasm.wasm file not found on disk, using memory store fallback');
+      }
+      const initSqlJs = (await import('sql.js')).default;
+      const SQL = await initSqlJs({ locateFile: () => wasmPath });
+      if (fs.existsSync(DB_PATH)) {
+        try {
+          db = new SQL.Database(fs.readFileSync(DB_PATH));
+        } catch (e) {
+          db = new SQL.Database();
+        }
+      } else {
         db = new SQL.Database();
       }
-    } else {
-      db = new SQL.Database();
+      runMigrations();
+      return db;
+    } catch (err) {
+      console.warn('[db] SQLite initialization failed or running in serverless environment. Using fast JSON/Memory storage engine:', err.message);
+      useJsonStore = true;
+      loadJsonStore();
+      return jsonStore;
     }
-    runMigrations();
-    return db;
   })();
 
   return initPromise;
 }
 
-function rowToDevice(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    name: row.name,
-    type: row.type,
-    token: row.token,
-    userAgent: row.user_agent,
-    pairedAt: row.paired_at,
-    lastSeen: row.last_seen,
-  };
-}
-
-function rowToItem(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    deviceId: row.device_id,
-    deviceName: row.device_name,
-    type: row.type,
-    content: row.content,
-    filePath: row.file_path,
-    fileName: row.file_name,
-    mimeType: row.mime_type,
-    size: row.size,
-    createdAt: row.created_at,
-  };
-}
-
 function queryAll(sql, params = []) {
+  if (!db) return [];
   const stmt = db.prepare(sql);
   stmt.bind(params);
   const rows = [];
@@ -148,76 +172,210 @@ function queryOne(sql, params = []) {
 }
 
 function execute(sql, params = []) {
+  if (!db) return;
   db.run(sql, params);
-  persist();
+  persistSql();
 }
+
+// ----------------- Devices -----------------
 
 export function createDevice({ id, name, type, token, userAgent }) {
   const now = Date.now();
+  const device = {
+    id,
+    name: String(name).slice(0, 64),
+    type: type || 'unknown',
+    token,
+    userAgent: userAgent || null,
+    pairedAt: now,
+    lastSeen: now,
+  };
+
+  if (useJsonStore || !db) {
+    jsonStore.devices.set(id, device);
+    persistJsonStore();
+    return device;
+  }
+
   execute(
     `INSERT INTO devices (id, name, type, token, user_agent, paired_at, last_seen)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, name, type, token, userAgent || null, now, now],
+    [id, device.name, device.type, token, device.userAgent, now, now],
   );
   return getDeviceByToken(token);
 }
 
 export function getDeviceByToken(token) {
-  return rowToDevice(queryOne('SELECT * FROM devices WHERE token = ?', [token]));
+  if (useJsonStore || !db) {
+    for (const d of jsonStore.devices.values()) {
+      if (d.token === token) return d;
+    }
+    return null;
+  }
+  const row = queryOne('SELECT * FROM devices WHERE token = ?', [token]);
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    token: row.token,
+    userAgent: row.user_agent,
+    pairedAt: row.paired_at,
+    lastSeen: row.last_seen,
+  };
 }
 
 export function getDeviceById(id) {
-  return rowToDevice(queryOne('SELECT * FROM devices WHERE id = ?', [id]));
+  if (useJsonStore || !db) {
+    return jsonStore.devices.get(id) || null;
+  }
+  const row = queryOne('SELECT * FROM devices WHERE id = ?', [id]);
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    token: row.token,
+    userAgent: row.user_agent,
+    pairedAt: row.paired_at,
+    lastSeen: row.last_seen,
+  };
 }
 
 export function touchDevice(id, name) {
+  const now = Date.now();
+  if (useJsonStore || !db) {
+    const d = jsonStore.devices.get(id);
+    if (d) {
+      d.lastSeen = now;
+      if (name) d.name = name;
+      persistJsonStore();
+    }
+    return;
+  }
+
   if (name) {
-    execute('UPDATE devices SET last_seen = ?, name = ? WHERE id = ?', [Date.now(), name, id]);
+    execute('UPDATE devices SET last_seen = ?, name = ? WHERE id = ?', [now, name, id]);
   } else {
-    execute('UPDATE devices SET last_seen = ? WHERE id = ?', [Date.now(), id]);
+    execute('UPDATE devices SET last_seen = ? WHERE id = ?', [now, id]);
   }
 }
 
 export function listDevices() {
-  return queryAll('SELECT * FROM devices ORDER BY last_seen DESC').map(rowToDevice);
+  if (useJsonStore || !db) {
+    return Array.from(jsonStore.devices.values()).sort((a, b) => b.lastSeen - a.lastSeen);
+  }
+  return queryAll('SELECT * FROM devices ORDER BY last_seen DESC').map((row) => ({
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    token: row.token,
+    userAgent: row.user_agent,
+    pairedAt: row.paired_at,
+    lastSeen: row.last_seen,
+  }));
 }
 
 export function deleteDevice(id) {
+  if (useJsonStore || !db) {
+    jsonStore.devices.delete(id);
+    persistJsonStore();
+    return;
+  }
   execute('DELETE FROM devices WHERE id = ?', [id]);
 }
 
+export function updateDevice(id, { name, type }) {
+  if (useJsonStore || !db) {
+    const d = jsonStore.devices.get(id);
+    if (d) {
+      if (name) d.name = String(name).slice(0, 64);
+      if (type) d.type = type;
+      persistJsonStore();
+    }
+    return d || null;
+  }
+  execute('UPDATE devices SET name = ?, type = ? WHERE id = ?', [name, type, id]);
+  persistSql();
+  return getDeviceById(id);
+}
+
+// ----------------- Pairing Codes -----------------
+
 export function createPairingCode(code, expiresAt) {
-  execute('DELETE FROM pairing_codes WHERE expires_at < ?', [Date.now()]);
+  const now = Date.now();
+  if (useJsonStore || !db) {
+    for (const [c, val] of jsonStore.pairing_codes.entries()) {
+      if (val.expiresAt < now) jsonStore.pairing_codes.delete(c);
+    }
+    jsonStore.pairing_codes.set(code, { code, expiresAt, used: 0 });
+    persistJsonStore();
+    return;
+  }
+  execute('DELETE FROM pairing_codes WHERE expires_at < ?', [now]);
   execute('INSERT INTO pairing_codes (code, expires_at, used) VALUES (?, ?, 0)', [code, expiresAt]);
 }
 
 export function consumePairingCode(code) {
-  execute('DELETE FROM pairing_codes WHERE expires_at < ?', [Date.now()]);
+  const now = Date.now();
+  if (useJsonStore || !db) {
+    const p = jsonStore.pairing_codes.get(code);
+    if (!p || p.used || p.expiresAt < now) return false;
+    p.used = 1;
+    persistJsonStore();
+    return true;
+  }
+
+  execute('DELETE FROM pairing_codes WHERE expires_at < ?', [now]);
   const row = queryOne('SELECT * FROM pairing_codes WHERE code = ?', [code]);
-  if (!row || row.used || row.expires_at < Date.now()) return false;
+  if (!row || row.used || row.expires_at < now) return false;
   execute('UPDATE pairing_codes SET used = 1 WHERE code = ?', [code]);
   return true;
 }
 
+// ----------------- Clipboard Items -----------------
+
 export function addClipboardItem(item) {
+  const newItem = {
+    id: item.id,
+    deviceId: item.deviceId,
+    deviceName: item.deviceName,
+    type: item.type,
+    content: item.content || null,
+    filePath: item.filePath || null,
+    fileName: item.fileName || null,
+    mimeType: item.mimeType || null,
+    size: item.size || 0,
+    createdAt: item.createdAt || Date.now(),
+  };
+
+  if (useJsonStore || !db) {
+    jsonStore.clipboard_items.unshift(newItem);
+    if (jsonStore.clipboard_items.length > MAX_HISTORY) {
+      jsonStore.clipboard_items = jsonStore.clipboard_items.slice(0, MAX_HISTORY);
+    }
+    persistJsonStore();
+    return newItem;
+  }
+
   execute(
     `INSERT INTO clipboard_items (id, device_id, device_name, type, content, file_path, file_name, mime_type, size, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      item.id,
-      item.deviceId,
-      item.deviceName,
-      item.type,
-      item.content,
-      item.filePath,
-      item.fileName,
-      item.mimeType,
-      item.size,
-      item.createdAt,
+      newItem.id,
+      newItem.deviceId,
+      newItem.deviceName,
+      newItem.type,
+      newItem.content,
+      newItem.filePath,
+      newItem.fileName,
+      newItem.mimeType,
+      newItem.size,
+      newItem.createdAt,
     ],
   );
 
-  const count = queryOne('SELECT COUNT(*) as count FROM clipboard_items').count;
+  const count = queryOne('SELECT COUNT(*) as count FROM clipboard_items')?.count || 0;
   if (count > MAX_HISTORY) {
     execute(
       `DELETE FROM clipboard_items WHERE id NOT IN (
@@ -227,34 +385,70 @@ export function addClipboardItem(item) {
     );
   }
 
-  return getClipboardItem(item.id);
+  return getClipboardItem(newItem.id);
 }
 
 export function getClipboardItem(id) {
-  return rowToItem(queryOne('SELECT * FROM clipboard_items WHERE id = ?', [id]));
+  if (useJsonStore || !db) {
+    return jsonStore.clipboard_items.find((i) => i.id === id) || null;
+  }
+  const row = queryOne('SELECT * FROM clipboard_items WHERE id = ?', [id]);
+  if (!row) return null;
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    deviceName: row.device_name,
+    type: row.type,
+    content: row.content,
+    filePath: row.file_path,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    size: row.size,
+    createdAt: row.created_at,
+  };
 }
 
 export function listClipboardItems({ limit = 50, offset = 0 } = {}) {
+  if (useJsonStore || !db) {
+    const sorted = [...jsonStore.clipboard_items].sort((a, b) => b.createdAt - a.createdAt);
+    const items = sorted.slice(offset, offset + limit);
+    return { items, total: sorted.length };
+  }
   const items = queryAll(
     'SELECT * FROM clipboard_items ORDER BY created_at DESC LIMIT ? OFFSET ?',
     [limit, offset],
-  ).map(rowToItem);
-  const total = queryOne('SELECT COUNT(*) as count FROM clipboard_items').count;
+  ).map((row) => ({
+    id: row.id,
+    deviceId: row.device_id,
+    deviceName: row.device_name,
+    type: row.type,
+    content: row.content,
+    filePath: row.file_path,
+    fileName: row.file_name,
+    mimeType: row.mime_type,
+    size: row.size,
+    createdAt: row.created_at,
+  }));
+  const total = queryOne('SELECT COUNT(*) as count FROM clipboard_items')?.count || 0;
   return { items, total };
 }
 
 export function deleteClipboardItem(id) {
+  if (useJsonStore || !db) {
+    jsonStore.clipboard_items = jsonStore.clipboard_items.filter((i) => i.id !== id);
+    persistJsonStore();
+    return;
+  }
   execute('DELETE FROM clipboard_items WHERE id = ?', [id]);
 }
 
 export function clearClipboardHistory() {
+  if (useJsonStore || !db) {
+    jsonStore.clipboard_items = [];
+    persistJsonStore();
+    return;
+  }
   execute('DELETE FROM clipboard_items');
-}
-
-export function updateDevice(id, { name, type }) {
-  execute('UPDATE devices SET name = ?, type = ? WHERE id = ?', [name, type, id]);
-  persist();
-  return getDeviceById(id);
 }
 
 export default { initDb };
