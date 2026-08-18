@@ -5,23 +5,31 @@
       <stop offset="50%" stop-color="#6366f1" />
       <stop offset="100%" stop-color="#8b5cf6" />
     </linearGradient>
-    <linearGradient id="textGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" />
-      <stop offset="100%" stop-color="#e0e7ff" />
-    </linearGradient>
-    <linearGradient id="dotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" />
-      <stop offset="100%" stop-color="#4ade80" />
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#6366f1" />
     </linearGradient>
   </defs>
 
-  <!-- Background Rounded Shape -->
-  <rect width="128" height="128" rx="32" fill="url(#bgGrad)" />
-  <rect x="1" y="1" width="126" height="126" rx="31" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" fill="none" />
+  <!-- Container -->
+  <rect width="128" height="128" rx="34" fill="url(#bgGrad)" />
+  <rect x="1" y="1" width="126" height="126" rx="33" stroke="rgba(255, 255, 255, 0.3)" stroke-width="2" fill="none" />
 
-  <!-- US Typography -->
-  <text x="56" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="62" font-weight="900" letter-spacing="-3" fill="url(#textGrad)" text-anchor="middle">US</text>
+  <!-- Back Layer Device -->
+  <rect x="46" y="26" width="50" height="66" rx="10" fill="rgba(255, 255, 255, 0.22)" stroke="rgba(255, 255, 255, 0.4)" stroke-width="2" />
+
+  <!-- Front Clipboard Device -->
+  <rect x="32" y="36" width="52" height="68" rx="10" fill="#ffffff" />
   
-  <!-- Glowing Dot / Live Share Dot -->
-  <circle cx="102" cy="78" r="8.5" fill="url(#dotGrad)" stroke="#ffffff" stroke-width="2" />
+  <!-- Clip Tab -->
+  <rect x="46" y="30" width="24" height="12" rx="5" fill="#4f46e5" stroke="#ffffff" stroke-width="2" />
+
+  <!-- Content Lines -->
+  <rect x="42" y="52" width="32" height="5" rx="2.5" fill="#6366f1" />
+  <rect x="42" y="62" width="24" height="4.5" rx="2.25" fill="#94a3b8" />
+  <rect x="42" y="71" width="28" height="4.5" rx="2.25" fill="#cbd5e1" />
+
+  <!-- Share Badge -->
+  <circle cx="88" cy="86" r="16" fill="url(#badgeGrad)" stroke="#ffffff" stroke-width="2.5" />
+  <path d="M83 86h10M89 82l4 4-4 4" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
 </svg>
