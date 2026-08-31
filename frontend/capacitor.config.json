@@ -1,0 +1,9 @@
+﻿{
+  "appId": "com.universalshared.app",
+  "appName": "Universal Shared",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "http"
+  }
+}

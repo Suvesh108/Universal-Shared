@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { api, getServerUrl, setServerUrl } from '../utils/api';
 
 export default function ProfileModal({ open, onClose, device, updateProfile, logout, showAlert, onToast, serverInfo }) {
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState('unknown');
   const [wifiIp, setWifiIp] = useState(localStorage.getItem('custom_host_ip') || '');
+  const [serverUrlVal, setServerUrlVal] = useState(getServerUrl() || '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (device && open) {
       setEditName(device.name);
       setEditType(device.type);
+      setServerUrlVal(getServerUrl() || '');
 
       if (serverInfo && serverInfo.hostIpOverride) {
         setWifiIp(serverInfo.hostIpOverride);
@@ -44,13 +46,15 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
     try {
       await updateProfile({ name: editName, type: editType });
 
+      setServerUrl(serverUrlVal);
+
       const trimmedIp = wifiIp.trim();
       if (trimmedIp) {
         localStorage.setItem('custom_host_ip', trimmedIp);
       } else {
         localStorage.removeItem('custom_host_ip');
       }
-      await api.updateSettings({ hostIp: trimmedIp });
+      await api.updateSettings({ hostIp: trimmedIp }).catch(() => {});
 
       onToast?.('Profile updated!');
       onClose();
@@ -135,7 +139,31 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
           </label>
 
           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
-            Wi-Fi IP Address
+            Server Address (URL or IP)
+            <input
+              type="text"
+              value={serverUrlVal}
+              onChange={(e) => setServerUrlVal(e.target.value)}
+              placeholder="e.g., http://192.168.1.10:3000"
+              style={{
+                padding: '0.55rem 0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text)',
+                fontSize: '0.95rem',
+                outline: 'none',
+                width: '100%',
+                fontFamily: 'ui-monospace, monospace'
+              }}
+            />
+          </label>
+          <p style={{ margin: '-0.5rem 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+            Set custom server endpoint for mobile APK or leave blank to connect to same host.
+          </p>
+
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
+            Wi-Fi IP Address (Host Override)
             <input
               type="text"
               value={wifiIp}
@@ -155,7 +183,7 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
             />
           </label>
           <p style={{ margin: '-0.5rem 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-            Enter your laptop's physical Wi-Fi IP address if you run inside Docker and your phone cannot connect. Leave blank to use auto-detected.
+            Enter your laptop's physical Wi-Fi IP address if you run inside Docker or custom network. Leave blank to use auto-detected.
           </p>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>

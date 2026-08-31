@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api } from '../utils/api';
+import { api, getServerUrl, setServerUrl } from '../utils/api';
 import { loadDeviceName } from '../utils/storage';
 
 export default function Header({ connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick }) {
@@ -14,8 +14,8 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
           <div className="header-sub">
             <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
             <span>{connected ? 'Connected' : 'Offline'}</span>
-            {(serverInfo?.primaryUrl || (typeof window !== 'undefined' && window.location.origin)) && (
-              <span className="server-url">{serverInfo?.primaryUrl || window.location.origin}</span>
+            {(serverInfo?.primaryUrl || getServerUrl() || (typeof window !== 'undefined' && window.location.origin)) && (
+              <span className="server-url">{serverInfo?.primaryUrl || getServerUrl() || window.location.origin}</span>
             )}
           </div>
         </div>
@@ -62,10 +62,18 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
   const [code, setCode] = useState(initialCode || '');
   const [mode, setMode] = useState(initialCode ? 'pair' : 'register');
   const [serverInfo, setServerInfo] = useState(null);
+  const [customServer, setCustomServer] = useState(getServerUrl());
+  const [showServerInput, setShowServerInput] = useState(false);
 
   useEffect(() => {
     api.info().then(setServerInfo).catch(() => {});
   }, []);
+
+  const handleSaveServer = () => {
+    setServerUrl(customServer);
+    setShowServerInput(false);
+    api.info().then(setServerInfo).catch(() => {});
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -85,8 +93,47 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
         </div>
 
         <div className="setup-server">
-          <span className="label">App Connection URL</span>
-          <code>{serverInfo?.primaryUrl || (typeof window !== 'undefined' ? window.location.origin : '')}</code>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <span className="label" style={{ margin: 0 }}>Server Connection</span>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: '2px 8px', fontSize: '0.75rem', height: 'auto' }}
+              onClick={() => setShowServerInput(!showServerInput)}
+            >
+              {showServerInput ? 'Cancel' : 'Change Server IP'}
+            </button>
+          </div>
+
+          {showServerInput ? (
+            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+              <input
+                type="text"
+                value={customServer}
+                onChange={(e) => setCustomServer(e.target.value)}
+                placeholder="e.g. http://192.168.1.10:3000"
+                style={{
+                  flex: 1,
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color, #333)',
+                  background: 'var(--bg-input, #222)',
+                  color: 'inherit',
+                  fontSize: '0.85rem'
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: '6px 12px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                onClick={handleSaveServer}
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <code>{getServerUrl() || serverInfo?.primaryUrl || (typeof window !== 'undefined' ? window.location.origin : '')}</code>
+          )}
         </div>
 
         <div className="mode-tabs">

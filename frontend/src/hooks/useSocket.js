@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { api } from '../utils/api';
+import { api, getServerUrl } from '../utils/api';
 
 export function useSocket(token, onClipboardReceive) {
   const [socketConnected, setSocketConnected] = useState(false);
@@ -17,7 +17,14 @@ export function useSocket(token, onClipboardReceive) {
 
     let socket;
     try {
-      socket = io({
+      const serverUrl = getServerUrl();
+      socket = serverUrl ? io(serverUrl, {
+        transports: ['websocket', 'polling'],
+        autoConnect: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 2000,
+        timeout: 5000,
+      }) : io({
         transports: ['websocket', 'polling'],
         autoConnect: true,
         reconnectionAttempts: 5,

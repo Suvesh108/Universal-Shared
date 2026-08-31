@@ -1,9 +1,10 @@
 {
-  "name": "universal-clipboard",
-  "version": "1.0.0",
+  "name": "universal-shared",
+  "version": "0.1.0",
   "private": true,
-  "description": "Self-hosted local clipboard sync — no cloud required",
+  "description": "Instant cross-platform clipboard & file sharing on local network",
   "type": "module",
+  "main": "electron/main.js",
   "workspaces": [
     "frontend",
     "backend"
@@ -16,7 +17,52 @@
     "build": "npm install --prefix frontend && npm run build --prefix frontend",
     "start": "npm run build && npm run start --prefix backend",
     "server": "npm run start --prefix backend",
-    "client": "npm run dev --prefix frontend"
+    "client": "npm run dev --prefix frontend",
+    "electron:dev": "electron .",
+    "dist:exe": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.universalshared.desktop",
+    "productName": "Universal Shared",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "backend/**/*",
+      "frontend/dist/**/*",
+      "build/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "frontend/dist",
+        "to": "frontend/dist"
+      },
+      {
+        "from": "backend",
+        "to": "backend"
+      },
+      {
+        "from": "build",
+        "to": "build"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Universal Shared"
+    }
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -28,6 +74,8 @@
     "uuid": "^11.0.5"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
   }
 }

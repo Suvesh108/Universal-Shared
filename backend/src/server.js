@@ -11,7 +11,7 @@ import { createApiRouter } from './routes/api.js';
 import { setupSocket } from './socket.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const frontendDist = path.join(__dirname, '../../frontend/dist');
+const frontendDist = process.env.FRONTEND_DIST || path.join(__dirname, '../../frontend/dist');
 const hasFrontend = fs.existsSync(path.join(frontendDist, 'index.html'));
 
 await initDb();

@@ -1,3 +1,30 @@
+const SERVER_URL_KEY = 'uc_server_url';
+
+export function getServerUrl() {
+  if (typeof window === 'undefined') return '';
+  const custom = localStorage.getItem(SERVER_URL_KEY);
+  if (custom) return custom.replace(/\/+$/, '');
+  return '';
+}
+
+export function setServerUrl(url) {
+  if (!url) {
+    localStorage.removeItem(SERVER_URL_KEY);
+  } else {
+    let cleanUrl = url.trim();
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = 'http://' + cleanUrl;
+    }
+    cleanUrl = cleanUrl.replace(/\/+$/, '');
+    localStorage.setItem(SERVER_URL_KEY, cleanUrl);
+  }
+}
+
+export function apiUrl(path) {
+  const base = getServerUrl();
+  return base ? `${base}${path}` : path;
+}
+
 function headers(token, extra = {}) {
   const h = { ...extra };
   if (token) h['X-Device-Token'] = token;
@@ -14,51 +41,51 @@ async function parseJson(res) {
 }
 
 export const api = {
-  info: () => fetch('/api/info').then(parseJson),
+  info: () => fetch(apiUrl('/api/info')).then(parseJson),
 
   updateSettings: (settings) =>
-    fetch('/api/settings', {
+    fetch(apiUrl('/api/settings'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     }).then(parseJson),
 
   generatePairQr: (origin) => {
-    const url = '/api/pair/qr' + (origin ? `?origin=${encodeURIComponent(origin)}` : '');
+    const url = apiUrl('/api/pair/qr' + (origin ? `?origin=${encodeURIComponent(origin)}` : ''));
     return fetch(url).then(parseJson);
   },
 
   verifyPair: (body) =>
-    fetch('/api/pair/verify', {
+    fetch(apiUrl('/api/pair/verify'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(parseJson),
 
   registerDevice: (body) =>
-    fetch('/api/devices/register', {
+    fetch(apiUrl('/api/devices/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }).then(parseJson),
 
   listDevices: (token) =>
-    fetch('/api/devices', { headers: headers(token) }).then(parseJson),
+    fetch(apiUrl('/api/devices'), { headers: headers(token) }).then(parseJson),
 
   updateProfile: (token, { name, type }) =>
-    fetch('/api/devices/me', {
+    fetch(apiUrl('/api/devices/me'), {
       method: 'POST',
       headers: headers(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ name, type }),
     }).then(parseJson),
 
   listHistory: (token, { limit = 50, offset = 0 } = {}) =>
-    fetch(`/api/history?limit=${limit}&offset=${offset}`, {
+    fetch(apiUrl(`/api/history?limit=${limit}&offset=${offset}`), {
       headers: headers(token),
     }).then(parseJson),
 
   sendText: (token, content, type) =>
-    fetch('/api/clipboard', {
+    fetch(apiUrl('/api/clipboard'), {
       method: 'POST',
       headers: headers(token, { 'Content-Type': 'application/json' }),
       body: JSON.stringify({ content, type }),
@@ -70,7 +97,7 @@ export const api = {
       const form = new FormData();
       form.append('file', file);
 
-      xhr.open('POST', '/api/upload');
+      xhr.open('POST', apiUrl('/api/upload'));
       xhr.setRequestHeader('X-Device-Token', token);
 
       if (onProgress) {
@@ -93,19 +120,19 @@ export const api = {
     }),
 
   deleteItem: (token, id) =>
-    fetch(`/api/history/${id}`, {
+    fetch(apiUrl(`/api/history/${id}`), {
       method: 'DELETE',
       headers: headers(token),
     }).then(parseJson),
 
   clearHistory: (token) =>
-    fetch('/api/history', {
+    fetch(apiUrl('/api/history'), {
       method: 'DELETE',
       headers: headers(token),
     }).then(parseJson),
 
   deleteDevice: (token, id) =>
-    fetch(`/api/devices/${id}`, {
+    fetch(apiUrl(`/api/devices/${id}`), {
       method: 'DELETE',
       headers: headers(token),
     }).then(parseJson),
