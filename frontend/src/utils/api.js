@@ -1,9 +1,19 @@
 const SERVER_URL_KEY = 'uc_server_url';
 
+export function isCapacitor() {
+  if (typeof window === 'undefined') return false;
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ||
+    window.location.protocol === 'capacitor:' ||
+    (window.location.hostname === 'localhost' && window.location.port === '');
+}
+
 export function getServerUrl() {
   if (typeof window === 'undefined') return '';
   const custom = localStorage.getItem(SERVER_URL_KEY);
   if (custom) return custom.replace(/\/+$/, '');
+  if (isCapacitor()) {
+    return 'http://127.0.0.1:3847';
+  }
   return '';
 }
 
