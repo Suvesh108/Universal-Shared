@@ -1,25 +1,33 @@
 # 📦 Universal Shared — Releases
 
-## 🚀 Release v0.1.7 (Latest)
+## 🚀 Release v0.2.0 (Latest)
 
 | File Name | Platform | Format | Size | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **[`releases/universal-shared-v0.1.7.apk`](./releases/universal-shared-v0.1.7.apk)** | Android (8.0+) | APK | **3.96 MB** | Unified Settings Modal (Profile, Network Devices & Theme), Merged Timeline History |
-| **[`releases/universal-shared-v0.1.7-setup.exe`](./releases/universal-shared-v0.1.7-setup.exe)** | Windows (10/11) | NSIS Installer | **119.06 MB** | Full Windows setup installer with streamlined full-width layout and Settings modal |
-| **[`releases/universal-shared-v0.1.7.exe`](./releases/universal-shared-v0.1.7.exe)** | Windows (10/11) | Portable EXE | **118.83 MB** | Single-file portable executable (no install required) |
+| **[`releases/universal-shared-v0.2.0.apk`](./releases/universal-shared-v0.2.0.apk)** | Android (8.0+) | APK | **3.96 MB** | Dedicated Header History Modal for Android, Rebuilt Settings UI/UX, and E2EE sync |
+| **[`releases/universal-shared-v0.2.0-setup.exe`](./releases/universal-shared-v0.2.0-setup.exe)** | Windows (10/11) | NSIS Installer | **119.06 MB** | Windows desktop 45%/50% split layout (fixed composer left, scrollable chat box right) |
+| **[`releases/universal-shared-v0.2.0.exe`](./releases/universal-shared-v0.2.0.exe)** | Windows (10/11) | Portable EXE | **118.83 MB** | Single-file portable executable (no install required) |
 
-### ✨ What's New & Fixed in v0.1.7:
-1. **Unified Settings Modal (⚙️)**:
-   - Replaced scattered header buttons with a dedicated Settings icon (⚙️).
-   - Inside Settings, you now have:
-     - **Device Profile**: Name, Device Type (Windows/Android/Mac/iOS), Server address, Wi-Fi host IP override, App version, Check for updates, and Unpair device.
-     - **Devices on Network**: Real-time list of all paired devices with live status indicators (🟢 Online, 🟡 Idle, ⚪ Offline), device unpair buttons, and refresh.
-     - **Theme & Appearance**: Instant selector for 🌙 Dark Mode and ☀️ Light Mode.
-2. **Unified Merged Clipboard History**:
-   - Merged all clipboard history items into a single, clean, chronological timeline with total count indicator.
-   - Clean, full-width distraction-free main layout for both Windows and Android.
+### ✨ What's New & Fixed in v0.2.0:
+1. **Rebuilt Settings UI/UX from Scratch**:
+   - Redesigned Preferences dialog with modern pill navigation bar and clean cards:
+     - **👤 Device Profile**: Avatar badge, display name, device platform selector (Windows/Android/Mac/iOS/Other), and quick save.
+     - **🌐 Network Devices**: Paired cluster devices with live connection pulse indicators (🟢 Online, 🟡 Idle, ⚪ Offline) and unpair controls.
+     - **🎨 Theme Mode**: Interactive visual cards for 🌙 Dark Mode and ☀️ Light Mode.
+     - **📡 Connection**: Target server address, Wi-Fi host IP override.
+     - **ℹ️ About & Updates**: Version info and 1-click update check.
+2. **Desktop (Windows) 45% / 50% Split Layout**:
+   - **Left Column (45% Fixed)**: "Send to Clipboard" composer stays pinned and non-scrollable for fast access.
+   - **Right Column (50% Scrollable)**: "Clipboard History" container box with smooth chat-style scrollable timeline feed.
+3. **Android Dedicated Clipboard History Window**:
+   - Main screen is streamlined and focused on composing/sharing.
+   - Header features a dedicated **Clipboard History icon button (📋)** with real-time item counter badge.
+   - Tapping it opens a dedicated, full-featured Clipboard History modal window on Android.
 
 ---
+
+## 📦 Release v0.1.7
+- Unified Settings Modal (Profile, Network Devices & Theme), Merged Timeline History.
 
 ## 📦 Release v0.1.6
 - In-app Android update routing fix, local native installer targeting, JSON parse safety.

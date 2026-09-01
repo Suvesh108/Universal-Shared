@@ -145,68 +145,77 @@ export default function HistoryList({
   showAlert,
   showConfirm,
   isEnlarged,
-  onToggleResize
+  onToggleResize,
+  isModalView = false
 }) {
   return (
-    <section className="card history-section">
-      <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+    <section className={`card history-section ${isModalView ? 'history-modal-view' : ''}`} style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)', marginBottom: '0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2 style={{ margin: 0 }}>
-            Clipboard History {items.length > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 400 }}>({items.length})</span>}
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
+            Clipboard History {items.length > 0 && <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 400 }}>({items.length})</span>}
           </h2>
         </div>
 
-        <div className="section-actions">
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>
+        <div className="section-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh} title="Refresh clipboard history">
             Refresh
           </button>
           {items.length > 0 && (
-            <button type="button" className="btn btn-ghost btn-sm danger" onClick={onClear}>
-              Clear History
+            <button type="button" className="btn btn-ghost btn-sm danger" onClick={onClear} title="Clear all history">
+              Clear All
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={onToggleResize}
-            title={isEnlarged ? 'Collapse clipboard history' : 'Expand clipboard history'}
-            style={{ marginLeft: '2px' }}
-          >
-            {isEnlarged ? (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="4 14 10 14 10 20"/>
-                  <polyline points="20 10 14 10 14 4"/>
-                  <line x1="14" y1="10" x2="21" y2="3"/>
-                  <line x1="10" y1="14" x2="3" y2="21"/>
-                </svg>
-                <span>Collapse</span>
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="15 3 21 3 21 9"/>
-                  <polyline points="9 21 3 21 3 15"/>
-                  <line x1="21" y1="3" x2="14" y2="10"/>
-                  <line x1="3" y1="21" x2="10" y2="15"/>
-                </svg>
-                <span>Expand</span>
-              </>
-            )}
-          </button>
+          {!isModalView && onToggleResize && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={onToggleResize}
+              title={isEnlarged ? 'Collapse history' : 'Expand history'}
+              style={{ marginLeft: '2px' }}
+            >
+              {isEnlarged ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 14 10 14 10 20"/>
+                    <polyline points="20 10 14 10 14 4"/>
+                    <line x1="14" y1="10" x2="21" y2="3"/>
+                    <line x1="10" y1="14" x2="3" y2="21"/>
+                  </svg>
+                  <span>Collapse</span>
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 3 21 3 21 9"/>
+                    <polyline points="9 21 3 21 3 15"/>
+                    <line x1="21" y1="3" x2="14" y2="10"/>
+                    <line x1="3" y1="21" x2="10" y2="15"/>
+                  </svg>
+                  <span>Expand</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
-      {loading && items.length === 0 && <div className="empty-state">Loading…</div>}
-
-      {!loading && items.length === 0 && (
-        <div className="empty-state">
-          <span>📬</span>
-          <p>No clipboard items yet. Send something from any paired device.</p>
+      {loading && items.length === 0 && (
+        <div className="empty-state" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          Loading…
         </div>
       )}
 
-      <div className="history-list">
+      {!loading && items.length === 0 && (
+        <div className="empty-state" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+          <span style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📬</span>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+            No clipboard items yet. Send text or drop files to sync.
+          </p>
+        </div>
+      )}
+
+      <div className="history-list" style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         {items.map((item) => (
           <HistoryItem
             key={item.id}

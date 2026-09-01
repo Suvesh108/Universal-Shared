@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { api, getServerUrl, setServerUrl } from '../utils/api';
-import { DeviceList } from './HistoryList';
 
 export default function SettingsModal({
   open,
@@ -16,17 +15,19 @@ export default function SettingsModal({
   isDark,
   onThemeToggle
 }) {
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'devices' | 'appearance'
+  const [activeSection, setActiveSection] = useState('general'); // 'general' | 'devices' | 'appearance' | 'network' | 'about'
   const [editName, setEditName] = useState('');
-  const [editType, setEditType] = useState('unknown');
+  const [editType, setEditType] = useState('windows');
   const [wifiIp, setWifiIp] = useState(localStorage.getItem('custom_host_ip') || '');
   const [serverUrlVal, setServerUrlVal] = useState(getServerUrl() || '');
   const [saving, setSaving] = useState(false);
+  const [devices, setDevices] = useState([]);
+  const [loadingDevices, setLoadingDevices] = useState(false);
 
   useEffect(() => {
     if (device && open) {
-      setEditName(device.name);
-      setEditType(device.type);
+      setEditName(device.name || '');
+      setEditType(device.type || 'windows');
       setServerUrlVal(getServerUrl() || '');
 
       if (serverInfo && serverInfo.hostIpOverride) {
@@ -50,13 +51,24 @@ export default function SettingsModal({
           setWifiIp('');
         }
       }
+
+      fetchDevices();
     }
   }, [device, open, serverInfo]);
 
+  const fetchDevices = () => {
+    if (!device?.token) return;
+    setLoadingDevices(true);
+    api.listDevices(device.token)
+      .then((d) => setDevices(d.devices || []))
+      .catch(() => {})
+      .finally(() => setLoadingDevices(false));
+  };
+
   if (!open || !device) return null;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSaveProfile = async (e) => {
+    if (e) e.preventDefault();
     setSaving(true);
     try {
       await updateProfile({ name: editName, type: editType });
@@ -71,8 +83,7 @@ export default function SettingsModal({
       }
       await api.updateSettings({ hostIp: trimmedIp }).catch(() => {});
 
-      onToast?.('Settings saved!');
-      onClose();
+      onToast?.('Settings saved successfully!');
     } catch (err) {
       if (showAlert) showAlert(err.message, 'Save Error');
       else alert(err.message);
@@ -81,280 +92,380 @@ export default function SettingsModal({
     }
   };
 
-  const isAndroid = device.type === 'android' || device.type === 'ios' || device.name?.toLowerCase().includes('phone') || device.name?.toLowerCase().includes('android');
+  const handleDeleteDevice = async (id) => {
+    const confirmed = showConfirm 
+      ? await showConfirm('Are you sure you want to unpair this device?', 'Unpair Device')
+      : confirm('Are you sure you want to unpair this device?');
+    if (!confirmed) return;
+    try {
+      await api.deleteDevice(device.token, id);
+      fetchDevices();
+      onToast?.('Device unpaired.');
+    } catch (err) {
+      if (showAlert) showAlert(err.message, 'Unpair Error');
+      else alert(err.message);
+    }
+  };
+
+  const isAndroid = editType === 'android' || editType === 'ios' || editName?.toLowerCase().includes('phone') || editName?.toLowerCase().includes('android');
+
+  const otherDevices = devices.filter((d) => d.id !== device.id);
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: '540px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header" style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.25rem' }}>⚙️</span>
-            <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Settings</h2>
+    <div className="modal-overlay" onClick={onClose} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+      <div
+        className="settings-card-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: '680px',
+          maxHeight: '85vh',
+          background: 'var(--bg-card, #121214)',
+          border: '1px solid var(--border, rgba(255,255,255,0.1))',
+          borderRadius: '16px',
+          boxShadow: '0 24px 48px rgba(0,0,0,0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Modern Modal Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1.2rem 1.5rem',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-elevated)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'var(--accent-bg, rgba(99,102,241,0.15))',
+                color: 'var(--accent, #6366f1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem'
+              }}
+            >
+              ⚙️
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', letterSpacing: '-0.02em' }}>Preferences & Settings</h2>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Universal Shared v0.2.0</div>
+            </div>
           </div>
-          <button type="button" className="btn-close" onClick={onClose} aria-label="Close modal">×</button>
+
+          <button
+            type="button"
+            className="btn-close"
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-muted)',
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+              lineHeight: 1,
+              padding: '4px 8px',
+              borderRadius: '6px'
+            }}
+          >
+            ×
+          </button>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Horizontal Navigation Bar (Pill Bar) */}
         <div
           style={{
             display: 'flex',
             gap: '6px',
-            padding: '4px',
-            background: 'var(--bg-elevated, #18181b)',
-            borderRadius: '10px',
-            border: '1px solid var(--border, #27272a)',
-            margin: '1rem 0'
+            padding: '8px 1.5rem',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg, #09090b)',
+            overflowX: 'auto'
           }}
         >
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            style={{
-              flex: 1,
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'profile' ? 'var(--primary, #6366f1)' : 'transparent',
-              color: activeTab === 'profile' ? '#fff' : 'var(--text-muted)',
-              fontWeight: activeTab === 'profile' ? '600' : '400',
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>👤</span>
-            Device Profile
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('devices')}
-            style={{
-              flex: 1,
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'devices' ? 'var(--primary, #6366f1)' : 'transparent',
-              color: activeTab === 'devices' ? '#fff' : 'var(--text-muted)',
-              fontWeight: activeTab === 'devices' ? '600' : '400',
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>🌐</span>
-            Devices on Network
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('appearance')}
-            style={{
-              flex: 1,
-              padding: '6px 10px',
-              borderRadius: '8px',
-              border: 'none',
-              background: activeTab === 'appearance' ? 'var(--primary, #6366f1)' : 'transparent',
-              color: activeTab === 'appearance' ? '#fff' : 'var(--text-muted)',
-              fontWeight: activeTab === 'appearance' ? '600' : '400',
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
-            }}
-          >
-            <span>🎨</span>
-            Theme
-          </button>
+          {[
+            { id: 'general', label: 'Device Profile', icon: '👤' },
+            { id: 'devices', label: `Network (${otherDevices.length})`, icon: '🌐' },
+            { id: 'appearance', label: 'Theme', icon: '🎨' },
+            { id: 'network', label: 'Connection', icon: '📡' },
+            { id: 'about', label: 'About', icon: 'ℹ️' }
+          ].map((tab) => {
+            const isActive = activeSection === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveSection(tab.id)}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
+                  background: isActive ? 'var(--accent-bg, rgba(99,102,241,0.15))' : 'transparent',
+                  color: isActive ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: isActive ? '600' : '400',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
-          {/* TAB 1: DEVICE PROFILE */}
-          {activeTab === 'profile' && (
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '10px 12px', background: 'var(--bg, #18181b)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ fontSize: '2rem' }}>{isAndroid ? '📱' : '💻'}</span>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600 }}>{device.name}</h3>
-                  <p className="muted" style={{ margin: '0.15rem 0 0', fontSize: '0.75rem' }}>Active Local Node • {isAndroid ? 'Android' : 'Windows'}</p>
-                </div>
-              </div>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
-                Device Name
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  maxLength={64}
-                  required
+        {/* Scrollable Content Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem' }}>
+          {/* SECTION 1: DEVICE PROFILE */}
+          {activeSection === 'general' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Profile Card Header */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  padding: '1rem 1.25rem',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                <div
                   style={{
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-elevated)',
-                    color: 'var(--text)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    width: '100%'
-                  }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
-                Device Type
-                <select
-                  value={editType}
-                  onChange={(e) => setEditType(e.target.value)}
-                  style={{
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-elevated)',
-                    color: 'var(--text)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    width: '100%',
-                    cursor: 'pointer'
+                    width: '54px',
+                    height: '54px',
+                    borderRadius: '14px',
+                    background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                    border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.8rem'
                   }}
                 >
-                  <option value="windows">💻 Windows PC</option>
-                  <option value="android">📱 Android Phone</option>
-                  <option value="mac">🍏 Mac</option>
-                  <option value="ios">🍎 iPhone / iPad</option>
-                  <option value="unknown">🔌 Other Device</option>
-                </select>
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
-                Server Address (URL or IP)
-                <input
-                  type="text"
-                  value={serverUrlVal}
-                  onChange={(e) => setServerUrlVal(e.target.value)}
-                  placeholder="e.g., http://192.168.1.10:3000"
-                  style={{
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-elevated)',
-                    color: 'var(--text)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    width: '100%',
-                    fontFamily: 'ui-monospace, monospace'
-                  }}
-                />
-              </label>
-              <p style={{ margin: '-0.5rem 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                Set custom server endpoint for mobile APK or leave blank to connect to same host.
-              </p>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '600' }}>
-                Wi-Fi IP Address (Host Override)
-                <input
-                  type="text"
-                  value={wifiIp}
-                  onChange={(e) => setWifiIp(e.target.value)}
-                  placeholder="e.g., 192.168.0.130"
-                  style={{
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-elevated)',
-                    color: 'var(--text)',
-                    fontSize: '0.95rem',
-                    outline: 'none',
-                    width: '100%',
-                    fontFamily: 'ui-monospace, monospace'
-                  }}
-                />
-              </label>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg, #18181b)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>App Version</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Universal Shared v0.1.7</div>
+                  {isAndroid ? '📱' : '💻'}
                 </div>
-                {onCheckUpdate && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.8rem', padding: '4px 10px', height: 'auto' }}
-                    onClick={() => {
-                      onClose();
-                      onCheckUpdate();
-                    }}
-                  >
-                    Check for Updates
-                  </button>
-                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>{editName || device.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
+                    Active Local Cluster Node • {isAndroid ? 'Android' : 'Windows PC'}
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+              {/* Form Controls */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px' }}>
+                    Device Display Name
+                  </label>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    maxLength={64}
+                    placeholder="e.g., Workstation Laptop, Suvesh Pixel"
+                    style={{
+                      width: '100%',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '8px',
+                      border: '1px solid var(--border)',
+                      background: 'var(--bg, #09090b)',
+                      color: 'var(--text)',
+                      fontSize: '0.92rem',
+                      outline: 'none'
+                    }}
+                  />
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Visible to other devices when pairing and sending clipboard items.
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px' }}>
+                    Device Platform Type
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    {[
+                      { type: 'windows', label: 'Windows PC', icon: '💻' },
+                      { type: 'android', label: 'Android Phone', icon: '📱' },
+                      { type: 'mac', label: 'Apple Mac', icon: '🍏' },
+                      { type: 'ios', label: 'iPhone / iPad', icon: '🍎' },
+                      { type: 'unknown', label: 'Other OS', icon: '🔌' }
+                    ].map((t) => {
+                      const selected = editType === t.type;
+                      return (
+                        <div
+                          key={t.type}
+                          onClick={() => setEditType(t.type)}
+                          style={{
+                            padding: '10px',
+                            borderRadius: '10px',
+                            border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
+                            background: selected ? 'var(--accent-bg)' : 'var(--bg-elevated)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span style={{ fontSize: '1.2rem' }}>{t.icon}</span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: selected ? '600' : '400' }}>{t.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
                 <button
                   type="button"
                   className="btn btn-ghost danger"
-                  style={{ minHeight: '38px', padding: '0.5rem 1rem' }}
+                  style={{ fontSize: '0.82rem' }}
                   onClick={() => {
                     logout();
                     onClose();
                   }}
                 >
-                  Unpair Device
+                  Unpair / Reset Device
                 </button>
-                
+
                 <button
                   type="button"
-                  className="btn btn-secondary"
-                  style={{ marginLeft: 'auto', minHeight: '38px' }}
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                
-                <button
-                  type="submit"
                   className="btn btn-primary"
-                  style={{ minHeight: '38px' }}
+                  onClick={handleSaveProfile}
                   disabled={saving}
+                  style={{ minWidth: '120px' }}
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Profile'}
                 </button>
               </div>
-            </form>
-          )}
-
-          {/* TAB 2: DEVICES ON NETWORK */}
-          {activeTab === 'devices' && (
-            <div>
-              <DeviceList
-                token={device.token}
-                currentDeviceId={device.id}
-                showConfirm={showConfirm}
-                showAlert={showAlert}
-              />
             </div>
           )}
 
-          {/* TAB 3: THEME / APPEARANCE */}
-          {activeTab === 'appearance' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.5rem 0' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: '600' }}>Interface Theme</div>
-              <p style={{ margin: '-0.5rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Choose your preferred theme mode for Universal Shared.
-              </p>
+          {/* SECTION 2: CONNECTED DEVICES */}
+          {activeSection === 'devices' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Paired Devices on Network</h3>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                    Devices connected in your local peer cluster.
+                  </div>
+                </div>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={fetchDevices} disabled={loadingDevices}>
+                  {loadingDevices ? 'Refreshing...' : 'Refresh'}
+                </button>
+              </div>
+
+              {otherDevices.length === 0 ? (
+                <div
+                  style={{
+                    padding: '2rem 1rem',
+                    textAlign: 'center',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: '12px',
+                    border: '1px dashed var(--border)'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📡</div>
+                  <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>No Other Devices Paired</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Click "Pair Device" in the top header to connect your phone or laptop.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {otherDevices.map((d) => {
+                    const isDevAndroid = d.type === 'android' || d.type === 'ios' || d.name?.toLowerCase().includes('phone') || d.name?.toLowerCase().includes('android');
+
+                    return (
+                      <div
+                        key={d.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 14px',
+                          background: 'var(--bg-elevated)',
+                          borderRadius: '10px',
+                          border: '1px solid var(--border)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div
+                            style={{
+                              width: '38px',
+                              height: '38px',
+                              borderRadius: '8px',
+                              background: isDevAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                              border: isDevAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '1.25rem'
+                            }}
+                          >
+                            {isDevAndroid ? '📱' : '💻'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{d.name}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{isDevAndroid ? 'Android' : 'Windows'}</span>
+                              <span>•</span>
+                              <span style={{ color: d.online ? '#10b981' : '#a1a1aa' }}>
+                                {d.online ? '🟢 Online' : d.stale ? '⚪ Offline' : '🟡 Idle'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm danger"
+                          onClick={() => handleDeleteDevice(d.id)}
+                          title="Disconnect device"
+                          style={{ fontSize: '0.78rem' }}
+                        >
+                          Unpair
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SECTION 3: THEME & APPEARANCE */}
+          {activeSection === 'appearance' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Theme Mode</h3>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Choose your visual interface appearance.
+                </div>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div
@@ -362,21 +473,21 @@ export default function SettingsModal({
                     if (isDark) onThemeToggle?.();
                   }}
                   style={{
-                    padding: '1.25rem 1rem',
+                    padding: '1.25rem',
                     borderRadius: '12px',
-                    border: !isDark ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border)',
+                    border: !isDark ? '2px solid var(--accent, #6366f1)' : '1px solid var(--border)',
                     background: '#f8fafc',
                     color: '#0f172a',
                     cursor: 'pointer',
                     textAlign: 'center',
                     transition: 'all 0.2s ease',
-                    boxShadow: !isDark ? '0 0 0 2px rgba(99, 102, 241, 0.2)' : 'none'
+                    boxShadow: !isDark ? '0 0 0 3px rgba(99, 102, 241, 0.25)' : 'none'
                   }}
                 >
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>☀️</div>
-                  <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>Light Mode</div>
+                  <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>☀️</div>
+                  <div style={{ fontWeight: '700', fontSize: '1rem' }}>Light Mode</div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
-                    {!isDark ? '✓ Active' : 'Select Light'}
+                    {!isDark ? '✓ Active Theme' : 'Tap to Activate'}
                   </div>
                 </div>
 
@@ -385,23 +496,145 @@ export default function SettingsModal({
                     if (!isDark) onThemeToggle?.();
                   }}
                   style={{
-                    padding: '1.25rem 1rem',
+                    padding: '1.25rem',
                     borderRadius: '12px',
-                    border: isDark ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border)',
+                    border: isDark ? '2px solid var(--accent, #6366f1)' : '1px solid var(--border)',
                     background: '#09090b',
                     color: '#f8fafc',
                     cursor: 'pointer',
                     textAlign: 'center',
                     transition: 'all 0.2s ease',
-                    boxShadow: isDark ? '0 0 0 2px rgba(99, 102, 241, 0.2)' : 'none'
+                    boxShadow: isDark ? '0 0 0 3px rgba(99, 102, 241, 0.25)' : 'none'
                   }}
                 >
-                  <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🌙</div>
-                  <div style={{ fontWeight: '600', fontSize: '0.95rem' }}>Dark Mode</div>
+                  <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>🌙</div>
+                  <div style={{ fontWeight: '700', fontSize: '1rem' }}>Dark Mode</div>
                   <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>
-                    {isDark ? '✓ Active' : 'Select Dark'}
+                    {isDark ? '✓ Active Theme' : 'Tap to Activate'}
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 4: NETWORK & CONNECTION */}
+          {activeSection === 'network' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600' }}>Network Endpoint Configuration</h3>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  Configure local cluster listening IP and remote server URLs.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px' }}>
+                  Server Address (URL or IP)
+                </label>
+                <input
+                  type="text"
+                  value={serverUrlVal}
+                  onChange={(e) => setServerUrlVal(e.target.value)}
+                  placeholder="e.g., http://192.168.1.10:3000"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg, #09090b)',
+                    color: 'var(--text)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                    fontFamily: 'ui-monospace, monospace'
+                  }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Target server endpoint used by the mobile APK to sync with PC.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px' }}>
+                  Wi-Fi IP Address (Host Override)
+                </label>
+                <input
+                  type="text"
+                  value={wifiIp}
+                  onChange={(e) => setWifiIp(e.target.value)}
+                  placeholder="e.g., 192.168.0.130"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem 0.85rem',
+                    borderRadius: '8px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg, #09090b)',
+                    color: 'var(--text)',
+                    fontSize: '0.92rem',
+                    outline: 'none',
+                    fontFamily: 'ui-monospace, monospace'
+                  }}
+                />
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Overrides QR code IP generation if virtual adapters (e.g., WSL/VPN) conflict.
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleSaveProfile}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Connection Settings'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION 5: ABOUT & UPDATES */}
+          {activeSection === 'about' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '1rem',
+                  padding: '1.25rem',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                <div style={{ fontSize: '2.5rem' }}>📦</div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>Universal Shared</h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Version <strong>v0.2.0</strong> (Latest)
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px' }}>
+                    🔒 AES-256-GCM End-to-End Encrypted
+                  </div>
+                </div>
+              </div>
+
+              {onCheckUpdate && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    onClose();
+                    onCheckUpdate();
+                  }}
+                  style={{ padding: '0.75rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                >
+                  <span>🔄</span>
+                  <span>Check for App Updates</span>
+                </button>
+              )}
+
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                Universal Shared is an open-source cross-platform local sync utility providing instant clipboard and file sharing between Windows, Android, Mac, and Linux without intermediate cloud servers.
               </div>
             </div>
           )}

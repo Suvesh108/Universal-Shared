@@ -2,17 +2,18 @@ import { useState, useCallback, useEffect } from 'react';
 import Header, { SetupScreen } from './components/Header';
 import PairingModal from './components/PairingModal';
 import PairApprovalModal from './components/PairApprovalModal';
-import ProfileModal from './components/ProfileModal';
+import SettingsModal from './components/SettingsModal';
+import HistoryModal from './components/HistoryModal';
 import UpdateModal from './components/UpdateModal';
 import ClipboardInput from './components/ClipboardInput';
-import HistoryList, { DeviceList } from './components/HistoryList';
+import HistoryList from './components/HistoryList';
 import { useDevice, useServerInfo, useInitialPairCode } from './hooks/useDevice';
 import { useSocket } from './hooks/useSocket';
 import { useClipboardHistory, copyToClipboard } from './hooks/useClipboard';
 import { useTheme } from './hooks/useTheme';
 import { saveDeviceName } from './utils/storage';
 import CustomDialog from './components/CustomDialog';
-import { api, setServerUrl } from './utils/api';
+import { api, setServerUrl, isCapacitor } from './utils/api';
 import { checkForUpdate } from './utils/updater';
 
 export default function App() {
@@ -21,7 +22,8 @@ export default function App() {
   const initialCode = useInitialPairCode();
   const { toggle, isDark } = useTheme();
   const [showPair, setShowPair] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [toast, setToast] = useState(null);
@@ -30,6 +32,15 @@ export default function App() {
   const [isHistoryEnlarged, setIsHistoryEnlarged] = useState(false);
   const [devicesList, setDevicesList] = useState([]);
   const [pendingPairRequest, setPendingPairRequest] = useState(null);
+  const [isMobile, setIsMobile] = useState(isCapacitor() || (typeof window !== 'undefined' && window.innerWidth <= 768));
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(isCapacitor() || window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (device?.token) {
@@ -39,16 +50,16 @@ export default function App() {
     }
   }, [device?.token]);
 
-  const showAlert = useCallback((message, title = 'Alert') => {
+  const showAlert = useCallback((message, title = 'Notice') => {
     return new Promise((resolve) => {
       setDialog({
         open: true,
-        message,
-        title,
         type: 'alert',
-        onResolve: (res) => {
+        title,
+        message,
+        onResolve: () => {
           setDialog(null);
-          resolve(res);
+          resolve(true);
         }
       });
     });
@@ -58,70 +69,44 @@ export default function App() {
     return new Promise((resolve) => {
       setDialog({
         open: true,
-        message,
-        title,
         type: 'confirm',
-        onResolve: (res) => {
+        title,
+        message,
+        onResolve: (result) => {
           setDialog(null);
-          resolve(res);
+          resolve(result);
         }
       });
     });
   }, []);
 
-  const { items, loading: historyLoading, refresh, prepend, remove, clearAll } =
-    useClipboardHistory(device?.token);
-
   const showToast = useCallback((msg) => {
     setToast(msg);
-    setTimeout(() => setToast(null), 2500);
+    setTimeout(() => setToast(null), 3000);
   }, []);
-
-  const onReceive = useCallback(async (item, { fromSelf } = {}) => {
-    prepend(item);
-    if (!fromSelf && (item.type === 'text' || item.type === 'link') && item.content) {
-      try {
-        await copyToClipboard(item.content);
-        showToast(`Received from ${item.deviceName} — copied!`);
-      } catch {
-        showToast(`Received from ${item.deviceName}`);
-      }
-    } else if (!fromSelf) {
-      showToast(`Received ${item.type} from ${item.deviceName}`);
-    }
-  }, [prepend, showToast]);
-
-  const handlePairRequest = useCallback((reqData) => {
-    setPendingPairRequest(reqData);
-  }, []);
-
-  const { connected, sendText } = useSocket(device?.token, onReceive, handlePairRequest);
 
   const handleTheme = () => {
-    toggle();
-    setDark(isDark());
+    const next = toggle();
+    setDark(next === 'dark');
   };
 
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      /* no SW — fully local */
-    }
-  }, []);
+  const { items, loading: historyLoading, refresh, prepend, remove, clearAll } = useClipboardHistory(device?.token);
 
-  // Check for updates on startup
-  useEffect(() => {
-    const t = setTimeout(() => {
-      checkForUpdate().then((info) => {
-        if (info?.available) {
-          setUpdateInfo(info);
-          setShowUpdateModal(true);
+  const { connected, sendText } = useSocket(device?.token, {
+    onReceive: async (item, flags = {}) => {
+      prepend(item);
+      if (item.type === 'text' || item.type === 'link') {
+        if (!flags.fromSelf) {
+          await copyToClipboard(item.content);
+          showToast(`Synced from ${item.deviceName || 'device'}`);
         }
-      }).catch(() => {});
-    }, 2500);
-    return () => clearTimeout(t);
-  }, []);
+      }
+    },
+    onPairRequest: (req) => {
+      setPendingPairRequest(req);
+    }
+  });
 
-  // Sync saved custom host IP to backend if they are out of sync
   useEffect(() => {
     if (serverInfo && serverInfo.hostIpOverride !== undefined) {
       const savedIp = localStorage.getItem('custom_host_ip');
@@ -157,13 +142,15 @@ export default function App() {
         connected={connected}
         serverInfo={serverInfo}
         onPairClick={() => setShowPair(true)}
-        onProfileClick={() => setShowProfile(true)}
+        onProfileClick={() => setShowSettings(true)}
+        onHistoryClick={isMobile ? () => setShowHistoryModal(true) : null}
+        historyCount={items.length}
         onThemeToggle={handleTheme}
         isDark={dark}
       />
 
-      <main className="main-grid single-column">
-        <div className="main-primary" style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+      {isMobile ? (
+        <main className="mobile-sender-layout">
           <ClipboardInput
             token={device.token}
             sendText={sendText}
@@ -175,24 +162,62 @@ export default function App() {
               showToast('Sent to all devices');
             }}
           />
-          <HistoryList
-            token={device.token}
-            currentDeviceId={device.id}
-            items={items}
-            loading={historyLoading}
-            onRefresh={refresh}
-            onRemove={remove}
-            showAlert={showAlert}
-            showConfirm={showConfirm}
-            onClear={async () => {
-              if (await showConfirm('Are you sure you want to clear all clipboard history?', 'Clear History')) await clearAll();
-            }}
-            onToast={showToast}
-            isEnlarged={isHistoryEnlarged}
-            onToggleResize={() => setIsHistoryEnlarged(!isHistoryEnlarged)}
-          />
-        </div>
-      </main>
+        </main>
+      ) : (
+        <main className="desktop-split-layout">
+          <div className="left-sender-fixed-column">
+            <ClipboardInput
+              token={device.token}
+              sendText={sendText}
+              showAlert={showAlert}
+              devices={devicesList}
+              currentDeviceId={device.id}
+              onSent={(item) => {
+                prepend(item);
+                showToast('Sent to all devices');
+              }}
+            />
+          </div>
+
+          <div className="right-history-scrollable-column">
+            <HistoryList
+              token={device.token}
+              currentDeviceId={device.id}
+              items={items}
+              loading={historyLoading}
+              onRefresh={refresh}
+              onRemove={remove}
+              showAlert={showAlert}
+              showConfirm={showConfirm}
+              onClear={async () => {
+                if (await showConfirm('Are you sure you want to clear all clipboard history?', 'Clear History')) await clearAll();
+              }}
+              onToast={showToast}
+              isEnlarged={isHistoryEnlarged}
+              onToggleResize={() => setIsHistoryEnlarged(!isHistoryEnlarged)}
+            />
+          </div>
+        </main>
+      )}
+
+      {isMobile && (
+        <HistoryModal
+          open={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          token={device.token}
+          currentDeviceId={device.id}
+          items={items}
+          loading={historyLoading}
+          onRefresh={refresh}
+          onRemove={remove}
+          onClear={async () => {
+            if (await showConfirm('Are you sure you want to clear all clipboard history?', 'Clear History')) await clearAll();
+          }}
+          onToast={showToast}
+          showAlert={showAlert}
+          showConfirm={showConfirm}
+        />
+      )}
 
       <PairingModal
         open={showPair}
@@ -220,9 +245,9 @@ export default function App() {
         }}
       />
 
-      <ProfileModal
-        open={showProfile}
-        onClose={() => setShowProfile(false)}
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
         device={device}
         updateProfile={updateProfile}
         logout={logout}
@@ -239,7 +264,7 @@ export default function App() {
             setUpdateInfo(info);
             setShowUpdateModal(true);
           } else {
-            showAlert('You are using the latest version of Universal Shared (v0.1.7).', 'Up to Date');
+            showAlert('You are using the latest version of Universal Shared (v0.2.0).', 'Up to Date');
           }
         }}
       />
