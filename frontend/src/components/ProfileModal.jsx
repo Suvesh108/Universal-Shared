@@ -185,7 +185,7 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg, #18181b)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
             <div>
               <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>App Version</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Universal Shared v0.1.1</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Universal Shared v0.1.2</div>
             </div>
             {onCheckUpdate && (
               <button

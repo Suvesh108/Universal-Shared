@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { api } from '../utils/api';
+import QrScannerModal from './QrScannerModal';
 
-export default function PairingModal({ open, onClose }) {
+export default function PairingModal({ open, onClose, onPairWithCode }) {
   const [qr, setQr] = useState(null);
   const [code, setCode] = useState('');
   const [pairUrl, setPairUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -32,19 +34,41 @@ export default function PairingModal({ open, onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleScanned = ({ code: scannedCode, serverUrl }) => {
+    if (onPairWithCode && scannedCode) {
+      onPairWithCode(scannedCode, serverUrl);
+      onClose();
+    }
+  };
+
   if (!open) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Pair a New Device</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.3rem' }}>🔗</span>
+            <h2 style={{ margin: 0 }}>Pair a Device</h2>
+          </div>
           <button type="button" className="btn-close" onClick={onClose} aria-label="Close modal">×</button>
         </div>
 
         <p className="modal-desc">
-          Scan this QR code with your phone or copy the URL below to pair your devices instantly.
+          Scan this QR code with your phone or point your camera at another device to link them.
         </p>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowScanner(true)}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+          >
+            <span>📷</span>
+            <strong>Scan Another QR</strong>
+          </button>
+        </div>
 
         {loading && <div className="spinner">Generating pairing key...</div>}
         {error && <p className="error-msg">{error}</p>}
@@ -95,8 +119,16 @@ export default function PairingModal({ open, onClose }) {
           </div>
         )}
 
-        <p className="modal-footnote">Code expires in 10 minutes. Transfers are synchronized securely across your paired devices.</p>
+        <p className="modal-footnote">
+          🔒 End-to-End Encrypted via AES-256-GCM. Transfers never leave your local network.
+        </p>
       </div>
+
+      <QrScannerModal
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScanned={handleScanned}
+      />
     </div>
   );
 }

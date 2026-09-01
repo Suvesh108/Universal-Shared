@@ -27,6 +27,15 @@ export default function App() {
   const [dark, setDark] = useState(isDark());
   const [dialog, setDialog] = useState(null);
   const [isHistoryEnlarged, setIsHistoryEnlarged] = useState(false);
+  const [devicesList, setDevicesList] = useState([]);
+
+  useEffect(() => {
+    if (device?.token) {
+      api.listDevices(device.token).then((res) => {
+        setDevicesList(res.devices || []);
+      }).catch(() => {});
+    }
+  }, [device?.token]);
 
   const showAlert = useCallback((message, title = 'Alert') => {
     return new Promise((resolve) => {
@@ -152,6 +161,8 @@ export default function App() {
               token={device.token}
               sendText={sendText}
               showAlert={showAlert}
+              devices={devicesList}
+              currentDeviceId={device.id}
               onSent={(item) => {
                 prepend(item);
                 showToast('Sent to all devices');
@@ -189,7 +200,15 @@ export default function App() {
         )}
       </main>
 
-      <PairingModal open={showPair} onClose={() => setShowPair(false)} />
+      <PairingModal
+        open={showPair}
+        onClose={() => setShowPair(false)}
+        onPairWithCode={(code, serverUrl) => {
+          if (serverUrl) setServerUrl(serverUrl);
+          pairWithCode(code);
+          showToast('Device paired successfully!');
+        }}
+      />
       <ProfileModal
         open={showProfile}
         onClose={() => setShowProfile(false)}

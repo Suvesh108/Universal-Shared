@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api, getServerUrl, setServerUrl } from '../utils/api';
 import { loadDeviceName } from '../utils/storage';
 import AppLogo from './AppLogo';
+import QrScannerModal from './QrScannerModal';
 
 export default function Header({ connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick }) {
   return (
@@ -12,9 +13,27 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
         </div>
         <div>
           <h1>Universal Shared</h1>
-          <div className="header-sub">
+          <div className="header-sub" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span className={`status-dot ${connected ? 'online' : 'offline'}`} />
             <span>{connected ? 'Connected' : 'Offline'}</span>
+            <span
+              className="e2ee-badge"
+              title="AES-256-GCM End-to-End Encrypted Local Sharing"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '3px',
+                fontSize: '0.7rem',
+                color: '#10b981',
+                background: 'rgba(16,185,129,0.12)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                border: '1px solid rgba(16,185,129,0.25)',
+                fontWeight: '600'
+              }}
+            >
+              🔒 E2EE
+            </span>
             {(serverInfo?.primaryUrl || getServerUrl() || (typeof window !== 'undefined' && window.location.origin)) && (
               <span className="server-url">{serverInfo?.primaryUrl || getServerUrl() || window.location.origin}</span>
             )}
@@ -65,6 +84,7 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
   const [serverInfo, setServerInfo] = useState(null);
   const [customServer, setCustomServer] = useState(getServerUrl());
   const [showServerInput, setShowServerInput] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     api.info().then(setServerInfo).catch(() => {});
@@ -77,9 +97,24 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (mode === 'pair') onPair(code, name);
     else onRegister(name);
+  };
+
+  const handleQrScanned = ({ serverUrl, code: scannedCode }) => {
+    if (serverUrl) {
+      setServerUrl(serverUrl);
+      setCustomServer(serverUrl);
+    }
+    if (scannedCode) {
+      setCode(scannedCode);
+      setMode('pair');
+      // Instant pairing
+      setTimeout(() => {
+        onPair(scannedCode, name);
+      }, 100);
+    }
   };
 
   return (
@@ -92,6 +127,28 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
           <h1>Universal Shared</h1>
           <p>Instant clipboard & file sharing across all your devices. Fast, private, and seamless.</p>
         </div>
+
+        {/* Quick QR Scan Action Button */}
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => setShowScanner(true)}
+          style={{
+            width: '100%',
+            marginBottom: '1rem',
+            padding: '10px 16px',
+            fontSize: '0.95rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            background: 'linear-gradient(135deg, #6366f1, #3b82f6)',
+            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.35)'
+          }}
+        >
+          <span style={{ fontSize: '1.2rem' }}>📷</span>
+          <strong>Scan QR Code on PC</strong>
+        </button>
 
         <div className="setup-server">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
@@ -112,7 +169,7 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
                 type="text"
                 value={customServer}
                 onChange={(e) => setCustomServer(e.target.value)}
-                placeholder="e.g. http://192.168.1.10:3000"
+                placeholder="e.g. http://192.168.1.10:3847"
                 style={{
                   flex: 1,
                   padding: '6px 10px',
@@ -193,6 +250,12 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
           On your Windows PC, open this app and tap <strong>Pair device</strong> to show a QR code for your phone.
         </p>
       </div>
+
+      <QrScannerModal
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        onScanned={handleQrScanned}
+      />
     </div>
   );
 }

@@ -188,7 +188,7 @@ public class LocalHttpServer {
         if ("/api/info".equals(path) && "GET".equals(method)) {
             JSONObject res = new JSONObject();
             res.put("name", "Universal Shared (Android)");
-            res.put("version", "0.1.1");
+            res.put("version", "0.1.2");
             res.put("port", actualPort);
             res.put("primaryUrl", getPrimaryUrl());
             JSONArray addrs = new JSONArray();

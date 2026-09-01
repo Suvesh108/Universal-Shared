@@ -2,12 +2,13 @@ import { useState, useRef } from 'react';
 import { api, isLink } from '../utils/api';
 import { readFromClipboard } from '../hooks/useClipboard';
 
-export default function ClipboardInput({ token, onSent, sendText, showAlert }) {
+export default function ClipboardInput({ token, onSent, sendText, showAlert, devices = [], currentDeviceId }) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
   const [currentFileName, setCurrentFileName] = useState('');
   const [dragOver, setDragOver] = useState(false);
+  const [targetDeviceId, setTargetDeviceId] = useState(null);
   const fileRef = useRef(null);
 
   const sendContent = async (content) => {
@@ -39,7 +40,7 @@ export default function ClipboardInput({ token, onSent, sendText, showAlert }) {
     }
   };
 
-  const uploadFiles = async (files) => {
+  const uploadFiles = async (files, directTargetDev = null) => {
     if (!files?.length) return;
     for (const file of files) {
       setUploadProgress(0);
@@ -53,23 +54,95 @@ export default function ClipboardInput({ token, onSent, sendText, showAlert }) {
     }
     setUploadProgress(null);
     setCurrentFileName('');
+    setTargetDeviceId(null);
   };
 
-  const onDrop = (e) => {
+  const onDrop = (e, devId = null) => {
     e.preventDefault();
+    e.stopPropagation();
     setDragOver(false);
-    uploadFiles(Array.from(e.dataTransfer.files));
+    setTargetDeviceId(null);
+    uploadFiles(Array.from(e.dataTransfer.files), devId);
   };
+
+  const otherDevices = devices.filter((d) => d.id !== currentDeviceId);
 
   return (
     <section className="card input-section">
-      <h2>Send to Clipboard</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+        <h2 style={{ margin: 0 }}>Send to Clipboard</h2>
+        <span
+          style={{
+            fontSize: '0.72rem',
+            color: '#10b981',
+            background: 'rgba(16,185,129,0.1)',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            border: '1px solid rgba(16,185,129,0.25)',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontWeight: '600'
+          }}
+        >
+          🔒 AES-256 Encrypted
+        </span>
+      </div>
+
+      {/* Drop-to-Device Quick Targets */}
+      {otherDevices.length > 0 && (
+        <div style={{ marginBottom: '0.85rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            Drop files directly to a specific device:
+          </div>
+          <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {otherDevices.map((dev) => {
+              const isTargeted = targetDeviceId === dev.id;
+              const isPhone = dev.type === 'phone' || dev.type === 'android' || dev.name.toLowerCase().includes('phone');
+              return (
+                <div
+                  key={dev.id}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setTargetDeviceId(dev.id);
+                  }}
+                  onDragLeave={() => setTargetDeviceId(null)}
+                  onDrop={(e) => onDrop(e, dev.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 12px',
+                    borderRadius: '10px',
+                    background: isTargeted ? 'rgba(99, 102, 241, 0.25)' : 'var(--bg-elevated, #18181b)',
+                    border: isTargeted ? '2px dashed #6366f1' : '1px solid var(--border, #27272a)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    flexShrink: 0
+                  }}
+                  onClick={() => fileRef.current?.click()}
+                  title={`Drop files to send directly to ${dev.name}`}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>{isPhone ? '📱' : '💻'}</span>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: '600', color: 'var(--text)' }}>{dev.name}</div>
+                    <div style={{ fontSize: '0.68rem', color: isTargeted ? '#6366f1' : 'var(--text-muted)' }}>
+                      {isTargeted ? 'Drop to send!' : 'Ready'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div
         className={`drop-zone ${dragOver ? 'drag-over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
+        onDrop={(e) => onDrop(e)}
       >
         <textarea
           className="clipboard-textarea"

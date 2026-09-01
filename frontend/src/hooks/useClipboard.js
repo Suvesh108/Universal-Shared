@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../utils/api';
+import { decryptText, encryptText } from '../utils/crypto';
 
 export function useClipboardHistory(token) {
   const [items, setItems] = useState([]);
@@ -11,7 +12,16 @@ export function useClipboardHistory(token) {
     setLoading(true);
     try {
       const data = await api.listHistory(token, { limit: 100 });
-      setItems(data.items);
+      const decryptedItems = await Promise.all(
+        (data.items || []).map(async (it) => {
+          if (it.content && typeof it.content === 'string') {
+            const dec = await decryptText(it.content, token);
+            return { ...it, content: dec, isEncrypted: it.content.startsWith('e2ee:') };
+          }
+          return it;
+        })
+      );
+      setItems(decryptedItems);
       setTotal(data.total);
     } catch {
       /* ignore */
@@ -24,13 +34,19 @@ export function useClipboardHistory(token) {
     refresh();
   }, [refresh]);
 
-  const prepend = useCallback((item) => {
+  const prepend = useCallback(async (item) => {
+    let processed = item;
+    if (item?.content && typeof item.content === 'string') {
+      const dec = await decryptText(item.content, token);
+      processed = { ...item, content: dec, isEncrypted: item.content.startsWith('e2ee:') };
+    }
+
     setItems((prev) => {
-      if (prev.some((i) => i.id === item.id)) return prev;
-      return [item, ...prev].slice(0, 100);
+      if (prev.some((i) => i.id === processed.id)) return prev;
+      return [processed, ...prev].slice(0, 100);
     });
     setTotal((t) => t + 1);
-  }, []);
+  }, [token]);
 
   const remove = useCallback(async (id) => {
     if (!token) return;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { api, getServerUrl } from '../utils/api';
+import { encryptText, decryptText } from '../utils/crypto';
 
 export function useSocket(token, onClipboardReceive) {
   const [socketConnected, setSocketConnected] = useState(false);
@@ -46,14 +47,22 @@ export function useSocket(token, onClipboardReceive) {
         setSocketConnected(false);
       });
 
-      socket.on('clipboard:receive', (item) => {
+      socket.on('clipboard:receive', async (item) => {
         if (item?.id) knownItemIdsRef.current.add(item.id);
-        callbackRef.current?.(item);
+        let decContent = item.content;
+        if (item?.content && typeof item.content === 'string') {
+          decContent = await decryptText(item.content, token);
+        }
+        callbackRef.current?.({ ...item, content: decContent, isEncrypted: item.content?.startsWith('e2ee:') });
       });
 
-      socket.on('clipboard:new', (item) => {
+      socket.on('clipboard:new', async (item) => {
         if (item?.id) knownItemIdsRef.current.add(item.id);
-        callbackRef.current?.(item, { fromSelf: true });
+        let decContent = item.content;
+        if (item?.content && typeof item.content === 'string') {
+          decContent = await decryptText(item.content, token);
+        }
+        callbackRef.current?.({ ...item, content: decContent, isEncrypted: item.content?.startsWith('e2ee:') }, { fromSelf: true });
       });
     } catch (e) {
       setSocketConnected(false);
@@ -72,13 +81,12 @@ export function useSocket(token, onClipboardReceive) {
     };
   }, [token]);
 
-  // 2. Smart Polling fallback (active when socket is not connected or in serverless environments)
+  // 2. Smart Polling fallback
   useEffect(() => {
     if (!token) return;
 
     let isMounted = true;
 
-    // Fast initial sync of known IDs
     const syncKnown = async () => {
       try {
         const res = await api.listHistory(token, { limit: 50 });
@@ -98,12 +106,10 @@ export function useSocket(token, onClipboardReceive) {
     syncKnown();
 
     const pollInterval = setInterval(async () => {
-      // If socket is actively connected, no need to poll
       if (socketRef.current?.connected) {
         return;
       }
 
-      // Don't poll aggressively if the tab is hidden to save resources
       if (typeof document !== 'undefined' && document.hidden) {
         return;
       }
@@ -114,7 +120,6 @@ export function useSocket(token, onClipboardReceive) {
         setPollingActive(true);
 
         if (Array.isArray(res.items)) {
-          // If this is after initial sync, check for any new items not yet seen
           if (initialFetchDoneRef.current) {
             const newItems = [];
             for (const item of res.items) {
@@ -124,9 +129,13 @@ export function useSocket(token, onClipboardReceive) {
               }
             }
 
-            // Trigger callbacks in chronological order (oldest to newest among new arrivals)
             for (let i = newItems.length - 1; i >= 0; i--) {
-              callbackRef.current?.(newItems[i]);
+              const item = newItems[i];
+              let decContent = item.content;
+              if (item?.content && typeof item.content === 'string') {
+                decContent = await decryptText(item.content, token);
+              }
+              callbackRef.current?.({ ...item, content: decContent, isEncrypted: item.content?.startsWith('e2ee:') });
             }
           } else {
             for (const item of res.items) {
@@ -146,25 +155,26 @@ export function useSocket(token, onClipboardReceive) {
     };
   }, [token]);
 
-  // 3. Send text with automatic fallback to REST API
-  const sendText = useCallback((content, type) => {
+  // 3. Send text with AES-256 E2EE encryption
+  const sendText = useCallback(async (content, type) => {
+    const encryptedContent = await encryptText(content, token);
+
     return new Promise((resolve, reject) => {
       const socket = socketRef.current;
       if (socket?.connected) {
-        socket.emit('clipboard:send', { content, type }, (res) => {
+        socket.emit('clipboard:send', { content: encryptedContent, type }, (res) => {
           if (res?.ok) {
             if (res.item?.id) knownItemIdsRef.current.add(res.item.id);
-            resolve(res.item);
+            resolve({ ...res.item, content }); // Return original plaintext locally
           } else {
             reject(new Error(res?.error || 'Send failed'));
           }
         });
       } else {
-        // Fallback to HTTP REST endpoint seamlessly
-        api.sendText(token, content, type)
+        api.sendText(token, encryptedContent, type)
           .then((res) => {
             if (res.item?.id) knownItemIdsRef.current.add(res.item.id);
-            resolve(res.item);
+            resolve({ ...res.item, content }); // Return original plaintext locally
           })
           .catch(reject);
       }
