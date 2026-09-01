@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { downloadAndInstallUpdate } from '../utils/updater';
-import { apiUrl, isCapacitor } from '../utils/api';
+import { apiUrl, nativeApiUrl, isCapacitor } from '../utils/api';
 
 export default function UpdateModal({ open, onClose, updateInfo }) {
   const [downloading, setDownloading] = useState(false);
@@ -43,10 +43,13 @@ export default function UpdateModal({ open, onClose, updateInfo }) {
 
     // Android / Standalone Native Mode
     try {
-      const res = await fetch(apiUrl('/api/system/install-update'), {
+      const res = await fetch(nativeApiUrl('/api/system/install-update'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
-      }).then((r) => r.json());
+      }).then(async (r) => {
+        const text = await r.text();
+        try { return JSON.parse(text); } catch { return { error: text }; }
+      });
 
       if (res?.needsPermission) {
         setError('Please enable "Install unknown apps" for Universal Shared, then tap Install & Restart again.');

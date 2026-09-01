@@ -1,6 +1,6 @@
-import { api, apiUrl, isCapacitor } from './api';
+import { api, apiUrl, nativeApiUrl, isCapacitor } from './api';
 
-export const CURRENT_VERSION = 'v0.1.5';
+export const CURRENT_VERSION = 'v0.1.6';
 export const REPO_OWNER = 'Suvesh108';
 export const REPO_NAME = 'Universal-Shared';
 
@@ -63,18 +63,29 @@ export async function downloadAndInstallUpdate(updateInfo, onProgress) {
   // 1. Android Native Updater
   if (isCapacitor()) {
     return new Promise((resolve, reject) => {
-      fetch(apiUrl('/api/system/download-update'), {
+      fetch(nativeApiUrl('/api/system/download-update'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: updateInfo.downloadUrl })
       })
-      .then(res => res.json())
+      .then(async (res) => {
+        const text = await res.text();
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error(text.includes('<!DOCTYPE') ? 'Local server not ready. Please retry.' : text);
+        }
+      })
       .then(data => {
         if (data.ok) {
           // Poll download progress
           const checkTimer = setInterval(async () => {
             try {
-              const progRes = await fetch(apiUrl('/api/system/update-progress')).then(r => r.json());
+              const progRes = await fetch(nativeApiUrl('/api/system/update-progress'))
+                .then(async (r) => {
+                  const t = await r.text();
+                  try { return JSON.parse(t); } catch { return {}; }
+                });
               if (progRes.progress !== undefined) {
                 onProgress?.(progRes.progress);
               }

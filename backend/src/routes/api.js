@@ -122,7 +122,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
     res.json({
       name: 'Universal Clipboard',
-      version: '0.1.5',
+      version: '0.1.6',
       port: actualPort,
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),
@@ -462,6 +462,10 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
     clearClipboardHistory();
     socketEmitter.emit('clipboard:cleared');
     res.json({ ok: true });
+  });
+
+  router.use((_req, res) => {
+    res.status(404).json({ error: 'Endpoint not found' });
   });
 
   return router;

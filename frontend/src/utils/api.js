@@ -35,6 +35,13 @@ export function apiUrl(path) {
   return base ? `${base}${path}` : path;
 }
 
+export function nativeApiUrl(path) {
+  if (isCapacitor()) {
+    return `http://127.0.0.1:3847${path}`;
+  }
+  return apiUrl(path);
+}
+
 function headers(token, extra = {}) {
   const h = { ...extra };
   if (token) h['X-Device-Token'] = token;
