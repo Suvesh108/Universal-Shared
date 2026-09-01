@@ -120,7 +120,7 @@ function createWindow() {
     },
   });
 
-  const appUrl = http://127.0.0.1:;
+  const appUrl = `http://127.0.0.1:${port}`;
 
   mainWindow.loadURL(appUrl).catch(() => {
     setTimeout(() => {
@@ -202,7 +202,7 @@ function downloadFileWithRedirects(url, destPath, onProgress) {
       if (res.statusCode !== 200) {
         file.close();
         try { fs.unlinkSync(destPath); } catch (e) {}
-        return reject(new Error(Download failed with HTTP ));
+        return reject(new Error(`Download failed with HTTP ${res.statusCode}`));
       }
 
       const totalBytes = parseInt(res.headers['content-length'] || '0', 10);
@@ -267,7 +267,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   await startBackend();
-  await waitForServer(http://127.0.0.1:/api/info);
+  await waitForServer(`http://127.0.0.1:${port}/api/info`);
   createWindow();
   createTray();
 
