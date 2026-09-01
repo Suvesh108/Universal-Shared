@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, Tray, Menu, nativeImage, shell } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
@@ -24,22 +24,38 @@ try {
 process.env.DATA_DIR = dataDir;
 process.env.PORT = port;
 
-const frontendPath = app.isPackaged
-  ? path.join(process.resourcesPath, 'frontend/dist')
-  : path.join(__dirname, '../frontend/dist');
-
-if (fs.existsSync(frontendPath)) {
-  process.env.FRONTEND_DIST = frontendPath;
+const frontendCandidates = [
+  path.join(__dirname, '../frontend/dist'),
+  path.join(process.resourcesPath, 'frontend/dist'),
+  path.join(process.resourcesPath, 'app.asar/frontend/dist'),
+];
+for (const f of frontendCandidates) {
+  if (fs.existsSync(path.join(f, 'index.html'))) {
+    process.env.FRONTEND_DIST = f;
+    break;
+  }
 }
 
 // Start backend server
 async function startBackend() {
   try {
-    const backendServerFile = app.isPackaged
-      ? path.join(process.resourcesPath, 'backend/src/server.js')
-      : path.join(__dirname, '../backend/src/server.js');
+    const candidates = [
+      path.join(__dirname, '../backend/src/server.js'),
+      path.join(process.resourcesPath, 'backend/src/server.js'),
+      path.join(process.resourcesPath, 'app.asar/backend/src/server.js'),
+    ];
+    let backendServerFile = null;
+    for (const c of candidates) {
+      if (fs.existsSync(c)) {
+        backendServerFile = c;
+        break;
+      }
+    }
+    if (!backendServerFile) {
+      backendServerFile = path.join(__dirname, '../backend/src/server.js');
+    }
     await import(pathToFileURL(backendServerFile).href);
-    console.log('Backend server module loaded');
+    console.log('Backend server module loaded from', backendServerFile);
   } catch (err) {
     console.error('Failed to load backend server in electron:', err);
   }
@@ -98,7 +114,7 @@ function createWindow() {
     },
   });
 
-  const appUrl = http://127.0.0.1:;
+  const appUrl = `http://127.0.0.1:${port}`;
 
   mainWindow.loadURL(appUrl).catch(() => {
     // If first load fails, retry after server starts
@@ -176,7 +192,7 @@ app.on('second-instance', () => {
 
 app.whenReady().then(async () => {
   await startBackend();
-  await waitForServer(http://127.0.0.1:/api/info);
+  await waitForServer(`http://127.0.0.1:${port}/api/info`);
   createWindow();
   createTray();
 
