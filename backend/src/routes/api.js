@@ -122,7 +122,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
     res.json({
       name: 'Universal Clipboard',
-      version: '0.1.6',
+      version: '0.1.7',
       port: actualPort,
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),

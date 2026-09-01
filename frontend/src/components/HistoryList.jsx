@@ -147,20 +147,13 @@ export default function HistoryList({
   isEnlarged,
   onToggleResize
 }) {
-  // Tab filter: 'all' | 'windows' | 'android'
-  const [activeTab, setActiveTab] = useState('all');
-
-  const windowsItems = items.filter((it) => getItemPlatform(it) === 'windows');
-  const androidItems = items.filter((it) => getItemPlatform(it) === 'android');
-
-  const filteredItems =
-    activeTab === 'windows' ? windowsItems : activeTab === 'android' ? androidItems : items;
-
   return (
     <section className="card history-section">
       <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2 style={{ margin: 0 }}>Clipboard History</h2>
+          <h2 style={{ margin: 0 }}>
+            Clipboard History {items.length > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 400 }}>({items.length})</span>}
+          </h2>
         </div>
 
         <div className="section-actions">
@@ -204,108 +197,17 @@ export default function HistoryList({
         </div>
       </div>
 
-      {/* Separate Windows & Android History Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '6px',
-          padding: '4px',
-          background: 'var(--bg-elevated, #18181b)',
-          borderRadius: '10px',
-          border: '1px solid var(--border, #27272a)',
-          marginBottom: '1rem'
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          style={{
-            flex: 1,
-            padding: '6px 10px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'all' ? 'var(--primary, #6366f1)' : 'transparent',
-            color: activeTab === 'all' ? '#fff' : 'var(--text-muted)',
-            fontWeight: activeTab === 'all' ? '600' : '400',
-            fontSize: '0.82rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px'
-          }}
-        >
-          <span>🌐</span>
-          All ({items.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('windows')}
-          style={{
-            flex: 1,
-            padding: '6px 10px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'windows' ? '#0284c7' : 'transparent',
-            color: activeTab === 'windows' ? '#fff' : 'var(--text-muted)',
-            fontWeight: activeTab === 'windows' ? '600' : '400',
-            fontSize: '0.82rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px'
-          }}
-        >
-          <span>💻</span>
-          Windows ({windowsItems.length})
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('android')}
-          style={{
-            flex: 1,
-            padding: '6px 10px',
-            borderRadius: '8px',
-            border: 'none',
-            background: activeTab === 'android' ? '#16a34a' : 'transparent',
-            color: activeTab === 'android' ? '#fff' : 'var(--text-muted)',
-            fontWeight: activeTab === 'android' ? '600' : '400',
-            fontSize: '0.82rem',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px'
-          }}
-        >
-          <span>📱</span>
-          Android ({androidItems.length})
-        </button>
-      </div>
-
       {loading && items.length === 0 && <div className="empty-state">Loading…</div>}
 
-      {!loading && filteredItems.length === 0 && (
+      {!loading && items.length === 0 && (
         <div className="empty-state">
-          <span>{activeTab === 'windows' ? '💻' : activeTab === 'android' ? '📱' : '📬'}</span>
-          <p>
-            {activeTab === 'windows'
-              ? 'No clipboard items from Windows devices yet.'
-              : activeTab === 'android'
-              ? 'No clipboard items from Android devices yet.'
-              : 'No clipboard items yet. Send something from any paired device.'}
-          </p>
+          <span>📬</span>
+          <p>No clipboard items yet. Send something from any paired device.</p>
         </div>
       )}
 
       <div className="history-list">
-        {filteredItems.map((item) => (
+        {items.map((item) => (
           <HistoryItem
             key={item.id}
             item={item}
@@ -350,30 +252,32 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
   const otherDevices = devices.filter((d) => d.id !== currentDeviceId);
 
   return (
-    <section className="card devices-section">
-      <div className="section-header">
-        <h2>Devices on Network</h2>
+    <div className="devices-list-container">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+        <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 600 }}>Devices on Network</h4>
         <button type="button" className="btn btn-ghost btn-sm" onClick={refresh}>Refresh</button>
       </div>
 
       {otherDevices.length === 0 ? (
-        <div className="empty-state small">No other paired devices yet.</div>
+        <div className="empty-state small" style={{ padding: '1rem', background: 'var(--bg, #18181b)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          No other paired devices yet.
+        </div>
       ) : (
-        <ul className="device-list">
+        <ul className="device-list" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {otherDevices.map((d) => {
             const isAndroid = d.type === 'android' || d.type === 'ios' || d.name?.toLowerCase().includes('phone') || d.name?.toLowerCase().includes('pixel') || d.name?.toLowerCase().includes('android');
 
             return (
-              <li key={d.id} className={d.online ? 'online' : ''} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <li key={d.id} className={d.online ? 'online' : ''} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: 'var(--bg, #18181b)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
                 <div
                   style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '8px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.25rem',
+                    fontSize: '1.2rem',
                     background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
                     border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
                     flexShrink: 0
@@ -384,7 +288,7 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
 
                 <div className="device-info" style={{ flex: 1, minWidth: 0 }}>
                   <div className="device-name-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
-                    <strong style={{ fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <strong style={{ fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {d.name}
                     </strong>
                     <span
@@ -411,7 +315,7 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
                   className="btn-icon"
                   onClick={() => handleDelete(d.id)}
                   title="Unpair device"
-                  style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', padding: '0.25rem' }}
+                  style={{ width: '30px', height: '30px', minWidth: '30px', minHeight: '30px', padding: '0.2rem' }}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--danger)' }}>
                     <polyline points="3 6 5 6 21 6"/>
@@ -423,6 +327,6 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
           })}
         </ul>
       )}
-    </section>
+    </div>
   );
 }

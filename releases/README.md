@@ -1,19 +1,28 @@
 # 📦 Universal Shared — Releases
 
-## 🚀 Release v0.1.6 (Latest)
+## 🚀 Release v0.1.7 (Latest)
 
 | File Name | Platform | Format | Size | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **[`releases/universal-shared-v0.1.6.apk`](./releases/universal-shared-v0.1.6.apk)** | Android (8.0+) | APK | **3.96 MB** | In-app Android update routing fix, local native installer targeting, JSON parse safety, and E2EE |
-| **[`releases/universal-shared-v0.1.6-setup.exe`](./releases/universal-shared-v0.1.6-setup.exe)** | Windows (10/11) | NSIS Installer | **119.06 MB** | Full Windows setup installer with dedicated Windows & Android clipboard tabs and in-app updater |
-| **[`releases/universal-shared-v0.1.6.exe`](./releases/universal-shared-v0.1.6.exe)** | Windows (10/11) | Portable EXE | **118.83 MB** | Single-file portable executable (no install required) |
+| **[`releases/universal-shared-v0.1.7.apk`](./releases/universal-shared-v0.1.7.apk)** | Android (8.0+) | APK | **3.96 MB** | Unified Settings Modal (Profile, Network Devices & Theme), Merged Timeline History |
+| **[`releases/universal-shared-v0.1.7-setup.exe`](./releases/universal-shared-v0.1.7-setup.exe)** | Windows (10/11) | NSIS Installer | **119.06 MB** | Full Windows setup installer with streamlined full-width layout and Settings modal |
+| **[`releases/universal-shared-v0.1.7.exe`](./releases/universal-shared-v0.1.7.exe)** | Windows (10/11) | Portable EXE | **118.83 MB** | Single-file portable executable (no install required) |
 
-### ✨ What's New & Fixed in v0.1.6:
-1. **Android APK In-App Update JSON Parsing Fix**:
-   - **Root Cause**: When an Android device was paired with a PC (`http://192.168.x.x:3847`), update download requests were sent to the remote PC's server rather than the phone's local Android installer. The PC returned `index.html` (`<!DOCTYPE html>`), throwing a JSON syntax error.
-   - **Fix**: Android update operations (`/api/system/download-update`, `/api/system/update-progress`, `/api/system/install-update`) now strictly route to the local Android embedded Java daemon (`http://127.0.0.1:3847`) via `nativeApiUrl()`, with full JSON validation and resilient error handling.
+### ✨ What's New & Fixed in v0.1.7:
+1. **Unified Settings Modal (⚙️)**:
+   - Replaced scattered header buttons with a dedicated Settings icon (⚙️).
+   - Inside Settings, you now have:
+     - **Device Profile**: Name, Device Type (Windows/Android/Mac/iOS), Server address, Wi-Fi host IP override, App version, Check for updates, and Unpair device.
+     - **Devices on Network**: Real-time list of all paired devices with live status indicators (🟢 Online, 🟡 Idle, ⚪ Offline), device unpair buttons, and refresh.
+     - **Theme & Appearance**: Instant selector for 🌙 Dark Mode and ☀️ Light Mode.
+2. **Unified Merged Clipboard History**:
+   - Merged all clipboard history items into a single, clean, chronological timeline with total count indicator.
+   - Clean, full-width distraction-free main layout for both Windows and Android.
 
 ---
+
+## 📦 Release v0.1.6
+- In-app Android update routing fix, local native installer targeting, JSON parse safety.
 
 ## 📦 Release v0.1.5
 - Separate Windows and Android clipboard history tabs with item counters, dedicated network profile icons.

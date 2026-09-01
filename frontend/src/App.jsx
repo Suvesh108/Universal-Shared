@@ -162,21 +162,19 @@ export default function App() {
         isDark={dark}
       />
 
-      <main className={`main-grid ${isHistoryEnlarged ? 'history-enlarged' : ''}`}>
-        <div className="main-primary">
-          {!isHistoryEnlarged && (
-            <ClipboardInput
-              token={device.token}
-              sendText={sendText}
-              showAlert={showAlert}
-              devices={devicesList}
-              currentDeviceId={device.id}
-              onSent={(item) => {
-                prepend(item);
-                showToast('Sent to all devices');
-              }}
-            />
-          )}
+      <main className="main-grid single-column">
+        <div className="main-primary" style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+          <ClipboardInput
+            token={device.token}
+            sendText={sendText}
+            showAlert={showAlert}
+            devices={devicesList}
+            currentDeviceId={device.id}
+            onSent={(item) => {
+              prepend(item);
+              showToast('Sent to all devices');
+            }}
+          />
           <HistoryList
             token={device.token}
             currentDeviceId={device.id}
@@ -194,18 +192,6 @@ export default function App() {
             onToggleResize={() => setIsHistoryEnlarged(!isHistoryEnlarged)}
           />
         </div>
-
-        {!isHistoryEnlarged && (
-          <aside className="main-sidebar">
-            <DeviceList token={device.token} currentDeviceId={device.id} showConfirm={showConfirm} showAlert={showAlert} />
-            <section className="card info-card">
-              <h2>Universal Shared</h2>
-              <p className="muted">
-                Seamless real-time clipboard & file sync across all your devices. Instant QR pairing, cross-platform compatibility, and zero-configuration sharing.
-              </p>
-            </section>
-          </aside>
-        )}
       </main>
 
       <PairingModal
@@ -241,8 +227,11 @@ export default function App() {
         updateProfile={updateProfile}
         logout={logout}
         showAlert={showAlert}
+        showConfirm={showConfirm}
         onToast={showToast}
         serverInfo={serverInfo}
+        isDark={dark}
+        onThemeToggle={handleTheme}
         onCheckUpdate={async () => {
           showToast('Checking for updates...');
           const info = await checkForUpdate();
@@ -250,7 +239,7 @@ export default function App() {
             setUpdateInfo(info);
             setShowUpdateModal(true);
           } else {
-            showAlert('You are using the latest version of Universal Shared (v0.1.3).', 'Up to Date');
+            showAlert('You are using the latest version of Universal Shared (v0.1.7).', 'Up to Date');
           }
         }}
       />
