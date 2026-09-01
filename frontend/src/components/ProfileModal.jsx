@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, getServerUrl, setServerUrl } from '../utils/api';
 
-export default function ProfileModal({ open, onClose, device, updateProfile, logout, showAlert, onToast, serverInfo }) {
+export default function ProfileModal({ open, onClose, device, updateProfile, logout, showAlert, onToast, serverInfo, onCheckUpdate }) {
   const [editName, setEditName] = useState('');
   const [editType, setEditType] = useState('unknown');
   const [wifiIp, setWifiIp] = useState(localStorage.getItem('custom_host_ip') || '');
@@ -182,9 +182,25 @@ export default function ProfileModal({ open, onClose, device, updateProfile, log
               }}
             />
           </label>
-          <p style={{ margin: '-0.5rem 0 0', fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-            Enter your laptop's physical Wi-Fi IP address if you run inside Docker or custom network. Leave blank to use auto-detected.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg, #18181b)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>App Version</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Universal Shared v0.1.1</div>
+            </div>
+            {onCheckUpdate && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: '0.8rem', padding: '4px 10px', height: 'auto' }}
+                onClick={() => {
+                  onClose();
+                  onCheckUpdate();
+                }}
+              >
+                Check for Updates
+              </button>
+            )}
+          </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
             <button

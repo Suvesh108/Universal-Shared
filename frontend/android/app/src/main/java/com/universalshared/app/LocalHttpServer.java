@@ -1,9 +1,13 @@
 package com.universalshared.app;
 
 import android.content.Context;
+import android.content.Intent;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.text.format.Formatter;
 import android.util.Log;
+
+import androidx.core.content.FileProvider;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -29,6 +33,11 @@ public class LocalHttpServer {
     private final Map<String, String> pairingCodes = new ConcurrentHashMap<>();
     private final File dataDir;
     private final File uploadsDir;
+
+    // In-app updater state
+    private volatile int updateProgress = 0;
+    private volatile boolean updateReady = false;
+    private volatile String updateError = null;
 
     public LocalHttpServer(Context context) {
         this.context = context.getApplicationContext();
@@ -179,7 +188,7 @@ public class LocalHttpServer {
         if ("/api/info".equals(path) && "GET".equals(method)) {
             JSONObject res = new JSONObject();
             res.put("name", "Universal Shared (Android)");
-            res.put("version", "0.1.0");
+            res.put("version", "0.1.1");
             res.put("port", actualPort);
             res.put("primaryUrl", getPrimaryUrl());
             JSONArray addrs = new JSONArray();
@@ -191,6 +200,54 @@ public class LocalHttpServer {
             res.put("onlineDevices", Math.max(1, devices.size()));
             res.put("hostIpOverride", (Object) null);
             sendJsonResponse(out, 200, res);
+            return;
+        }
+
+        // In-App Android Updater Endpoints
+        if ("/api/system/download-update".equals(path) && "POST".equals(method)) {
+            String body = readBody(reader, contentLength);
+            JSONObject req = new JSONObject(body.isEmpty() ? "{}" : body);
+            String downloadUrl = req.optString("url", "");
+            if (downloadUrl.isEmpty()) {
+                sendJsonResponse(out, 400, new JSONObject().put("error", "URL required"));
+                return;
+            }
+
+            updateProgress = 0;
+            updateReady = false;
+            updateError = null;
+
+            new Thread(() -> startApkDownload(downloadUrl)).start();
+            sendJsonResponse(out, 200, new JSONObject().put("ok", true));
+            return;
+        }
+
+        if ("/api/system/update-progress".equals(path) && "GET".equals(method)) {
+            JSONObject res = new JSONObject();
+            res.put("progress", updateProgress);
+            res.put("ready", updateReady);
+            res.put("error", updateError);
+            sendJsonResponse(out, 200, res);
+            return;
+        }
+
+        if ("/api/system/install-update".equals(path) && "POST".equals(method)) {
+            File apkFile = new File(context.getExternalFilesDir(null), "universal-shared-update.apk");
+            if (apkFile.exists()) {
+                try {
+                    Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    context.startActivity(intent);
+                    sendJsonResponse(out, 200, new JSONObject().put("ok", true));
+                } catch (Exception e) {
+                    sendJsonResponse(out, 500, new JSONObject().put("error", e.getMessage()));
+                }
+            } else {
+                sendJsonResponse(out, 404, new JSONObject().put("error", "APK file not found"));
+            }
             return;
         }
 
@@ -351,6 +408,50 @@ public class LocalHttpServer {
         }
 
         sendJsonResponse(out, 200, new JSONObject().put("ok", true));
+    }
+
+    private void startApkDownload(String downloadUrl) {
+        File dest = new File(context.getExternalFilesDir(null), "universal-shared-update.apk");
+        try {
+            if (dest.exists()) dest.delete();
+
+            URL url = new URL(downloadUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setInstanceFollowRedirects(true);
+            conn.setRequestProperty("User-Agent", "UniversalSharedAndroid/0.1.1");
+            conn.connect();
+
+            int code = conn.getResponseCode();
+            if (code == 301 || code == 302 || code == 307 || code == 308) {
+                String newUrl = conn.getHeaderField("Location");
+                conn.disconnect();
+                url = new URL(newUrl);
+                conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestProperty("User-Agent", "UniversalSharedAndroid/0.1.1");
+                conn.connect();
+            }
+
+            int length = conn.getContentLength();
+            try (InputStream in = conn.getInputStream();
+                 FileOutputStream out = new FileOutputStream(dest)) {
+
+                byte[] buf = new byte[8192];
+                int read;
+                long total = 0;
+                while ((read = in.read(buf)) != -1) {
+                    out.write(buf, 0, read);
+                    total += read;
+                    if (length > 0) {
+                        updateProgress = (int) Math.min(100, (total * 100) / length);
+                    }
+                }
+                updateProgress = 100;
+                updateReady = true;
+            }
+        } catch (Exception e) {
+            updateError = e.getMessage();
+            Log.e(TAG, "APK download failed: " + e.getMessage(), e);
+        }
     }
 
     private void handleStaticAsset(String path, OutputStream out) {

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { api, getServerUrl, setServerUrl } from '../utils/api';
 import { loadDeviceName } from '../utils/storage';
+import AppLogo from './AppLogo';
 
 export default function Header({ connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick }) {
   return (
     <header className="header">
       <div className="header-brand">
         <div className="header-icon" style={{ padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}>
-          <img src="/logo.svg" alt="US Logo" width="36" height="36" style={{ borderRadius: '9px', display: 'block' }} />
+          <AppLogo size={36} />
         </div>
         <div>
           <h1>Universal Shared</h1>
@@ -86,7 +87,7 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
       <div className="setup-card">
         <div className="setup-hero">
           <div className="setup-icon" style={{ padding: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}>
-            <img src="/logo.svg" alt="US Logo" width="68" height="68" style={{ borderRadius: '16px', display: 'block', boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)' }} />
+            <AppLogo size={68} style={{ boxShadow: '0 10px 25px -5px rgba(99, 102, 241, 0.4)' }} />
           </div>
           <h1>Universal Shared</h1>
           <p>Instant clipboard & file sharing across all your devices. Fast, private, and seamless.</p>

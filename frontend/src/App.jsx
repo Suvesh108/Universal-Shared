@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Header, { SetupScreen } from './components/Header';
 import PairingModal from './components/PairingModal';
 import ProfileModal from './components/ProfileModal';
+import UpdateModal from './components/UpdateModal';
 import ClipboardInput from './components/ClipboardInput';
 import HistoryList, { DeviceList } from './components/HistoryList';
 import { useDevice, useServerInfo, useInitialPairCode } from './hooks/useDevice';
@@ -11,6 +12,7 @@ import { useTheme } from './hooks/useTheme';
 import { saveDeviceName } from './utils/storage';
 import CustomDialog from './components/CustomDialog';
 import { api } from './utils/api';
+import { checkForUpdate } from './utils/updater';
 
 export default function App() {
   const { device, loading, error, register, pairWithCode, logout, updateProfile } = useDevice();
@@ -19,6 +21,8 @@ export default function App() {
   const { toggle, isDark } = useTheme();
   const [showPair, setShowPair] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState(null);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [toast, setToast] = useState(null);
   const [dark, setDark] = useState(isDark());
   const [dialog, setDialog] = useState(null);
@@ -87,6 +91,19 @@ export default function App() {
     if ('serviceWorker' in navigator) {
       /* no SW — fully local */
     }
+  }, []);
+
+  // Check for updates on startup
+  useEffect(() => {
+    const t = setTimeout(() => {
+      checkForUpdate().then((info) => {
+        if (info?.available) {
+          setUpdateInfo(info);
+          setShowUpdateModal(true);
+        }
+      }).catch(() => {});
+    }, 2500);
+    return () => clearTimeout(t);
   }, []);
 
   // Sync saved custom host IP to backend if they are out of sync
@@ -182,6 +199,21 @@ export default function App() {
         showAlert={showAlert}
         onToast={showToast}
         serverInfo={serverInfo}
+        onCheckUpdate={async () => {
+          showToast('Checking for updates...');
+          const info = await checkForUpdate();
+          if (info?.available) {
+            setUpdateInfo(info);
+            setShowUpdateModal(true);
+          } else {
+            showAlert('You are using the latest version of Universal Shared (v0.1.1).', 'Up to Date');
+          }
+        }}
+      />
+      <UpdateModal
+        open={showUpdateModal}
+        onClose={() => setShowUpdateModal(false)}
+        updateInfo={updateInfo}
       />
 
       {toast && <div className="toast">{toast}</div>}
