@@ -31,6 +31,7 @@ public class LocalHttpServer {
     private final List<JSONObject> clipboardHistory = new CopyOnWriteArrayList<>();
     private final Map<String, JSONObject> devices = new ConcurrentHashMap<>();
     private final Map<String, String> pairingCodes = new ConcurrentHashMap<>();
+    private final Map<String, JSONObject> pendingPairRequests = new ConcurrentHashMap<>();
     private final File dataDir;
     private final File uploadsDir;
 
@@ -188,7 +189,7 @@ public class LocalHttpServer {
         if ("/api/info".equals(path) && "GET".equals(method)) {
             JSONObject res = new JSONObject();
             res.put("name", "Universal Shared (Android)");
-            res.put("version", "0.1.2");
+            res.put("version", "0.1.3");
             res.put("port", actualPort);
             res.put("primaryUrl", getPrimaryUrl());
             JSONArray addrs = new JSONArray();
@@ -267,11 +268,110 @@ public class LocalHttpServer {
 
         if ("/api/pair/qr".equals(path) && "GET".equals(method)) {
             String code = generatePairCode();
+            String ifaceIp = null;
+            if (fullUri.contains("interfaceIp=")) {
+                try {
+                    int idx = fullUri.indexOf("interfaceIp=") + "interfaceIp=".length();
+                    int endIdx = fullUri.indexOf("&", idx);
+                    ifaceIp = endIdx > idx ? fullUri.substring(idx, endIdx) : fullUri.substring(idx);
+                } catch (Exception ignored) {}
+            }
+            String hostUrl = (ifaceIp != null && !ifaceIp.isEmpty() && !ifaceIp.equals("127.0.0.1"))
+                    ? "http://" + ifaceIp + ":" + actualPort
+                    : getPrimaryUrl();
+
             JSONObject res = new JSONObject();
             res.put("code", code);
-            res.put("url", getPrimaryUrl() + "?pair=" + code);
+            res.put("url", hostUrl + "?pair=" + code);
+            res.put("pairUrl", hostUrl + "?pair=" + code);
             res.put("expiresInMs", 600000);
             sendJsonResponse(out, 200, res);
+            return;
+        }
+
+        if ("/api/pair/request".equals(path) && "POST".equals(method)) {
+            String body = readBody(reader, contentLength);
+            JSONObject req = new JSONObject(body.isEmpty() ? "{}" : body);
+            String name = req.optString("name", "Joining Device");
+            String type = req.optString("type", "unknown");
+            String code = req.optString("code", "").toUpperCase();
+            String reqId = UUID.randomUUID().toString();
+
+            JSONObject reqData = new JSONObject();
+            reqData.put("id", reqId);
+            reqData.put("name", name);
+            reqData.put("type", type);
+            reqData.put("code", code);
+            reqData.put("status", "pending");
+            reqData.put("createdAt", System.currentTimeMillis());
+
+            pendingPairRequests.put(reqId, reqData);
+
+            JSONObject res = new JSONObject();
+            res.put("ok", true);
+            res.put("requestId", reqId);
+            res.put("status", "pending");
+            sendJsonResponse(out, 200, res);
+            return;
+        }
+
+        if (path.startsWith("/api/pair/status/") && "GET".equals(method)) {
+            String reqId = path.substring("/api/pair/status/".length());
+            JSONObject reqData = pendingPairRequests.get(reqId);
+            if (reqData != null) {
+                JSONObject res = new JSONObject();
+                res.put("ok", true);
+                res.put("status", reqData.optString("status", "pending"));
+                res.put("device", reqData.optJSONObject("device"));
+                sendJsonResponse(out, 200, res);
+            } else {
+                sendJsonResponse(out, 404, new JSONObject().put("error", "Request not found"));
+            }
+            return;
+        }
+
+        if ("/api/pair/approve".equals(path) && "POST".equals(method)) {
+            String body = readBody(reader, contentLength);
+            JSONObject req = new JSONObject(body.isEmpty() ? "{}" : body);
+            String reqId = req.optString("requestId", "");
+            JSONObject reqData = pendingPairRequests.get(reqId);
+
+            if (reqData != null) {
+                String devId = UUID.randomUUID().toString();
+                String devToken = "tok_" + UUID.randomUUID().toString().replace("-", "");
+
+                JSONObject device = new JSONObject();
+                device.put("id", devId);
+                device.put("name", reqData.optString("name", "Paired Device"));
+                device.put("type", reqData.optString("type", "unknown"));
+                device.put("token", devToken);
+                device.put("createdAt", System.currentTimeMillis());
+
+                devices.put(devToken, device);
+                persistData();
+
+                reqData.put("status", "approved");
+                reqData.put("device", device);
+
+                JSONObject res = new JSONObject();
+                res.put("ok", true);
+                res.put("device", device);
+                sendJsonResponse(out, 200, res);
+            } else {
+                sendJsonResponse(out, 404, new JSONObject().put("error", "Request not found"));
+            }
+            return;
+        }
+
+        if ("/api/pair/decline".equals(path) && "POST".equals(method)) {
+            String body = readBody(reader, contentLength);
+            JSONObject req = new JSONObject(body.isEmpty() ? "{}" : body);
+            String reqId = req.optString("requestId", "");
+            JSONObject reqData = pendingPairRequests.get(reqId);
+            if (reqData != null) {
+                reqData.put("status", "declined");
+            }
+            sendJsonResponse(out, 200, new JSONObject().put("ok", true));
             return;
         }
 

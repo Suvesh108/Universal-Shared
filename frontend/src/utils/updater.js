@@ -1,6 +1,6 @@
 import { api, apiUrl, isCapacitor } from './api';
 
-export const CURRENT_VERSION = 'v0.1.2';
+export const CURRENT_VERSION = 'v0.1.3';
 export const REPO_OWNER = 'Suvesh108';
 export const REPO_NAME = 'Universal-Shared';
 

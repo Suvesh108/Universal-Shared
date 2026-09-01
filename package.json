@@ -1,6 +1,6 @@
 {
   "name": "universal-shared",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Instant cross-platform clipboard & file sharing on local network",
   "type": "module",

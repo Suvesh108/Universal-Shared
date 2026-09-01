@@ -60,10 +60,41 @@ export const api = {
       body: JSON.stringify(settings),
     }).then(parseJson),
 
-  generatePairQr: (origin) => {
-    const url = apiUrl('/api/pair/qr' + (origin ? `?origin=${encodeURIComponent(origin)}` : ''));
-    return fetch(url).then(parseJson);
+  generatePairQr: (origin, interfaceIp) => {
+    const params = new URLSearchParams();
+    if (origin && !origin.includes('127.0.0.1') && !origin.includes('localhost')) {
+      params.set('origin', origin);
+    }
+    if (interfaceIp) {
+      params.set('interfaceIp', interfaceIp);
+    }
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return fetch(apiUrl(`/api/pair/qr${query}`)).then(parseJson);
   },
+
+  requestPair: (body) =>
+    fetch(apiUrl('/api/pair/request'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(parseJson),
+
+  checkPairStatus: (requestId) =>
+    fetch(apiUrl(`/api/pair/status/${requestId}`)).then(parseJson),
+
+  approvePair: (requestId) =>
+    fetch(apiUrl('/api/pair/approve'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId }),
+    }).then(parseJson),
+
+  declinePair: (requestId) =>
+    fetch(apiUrl('/api/pair/decline'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestId }),
+    }).then(parseJson),
 
   verifyPair: (body) =>
     fetch(apiUrl('/api/pair/verify'), {

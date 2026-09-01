@@ -3,14 +3,16 @@ import { io } from 'socket.io-client';
 import { api, getServerUrl } from '../utils/api';
 import { encryptText, decryptText } from '../utils/crypto';
 
-export function useSocket(token, onClipboardReceive) {
+export function useSocket(token, onClipboardReceive, onPairRequest) {
   const [socketConnected, setSocketConnected] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
   const socketRef = useRef(null);
   const callbackRef = useRef(onClipboardReceive);
+  const pairRequestCallbackRef = useRef(onPairRequest);
   const knownItemIdsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
   callbackRef.current = onClipboardReceive;
+  pairRequestCallbackRef.current = onPairRequest;
 
   // 1. Socket connection attempt
   useEffect(() => {
@@ -45,6 +47,10 @@ export function useSocket(token, onClipboardReceive) {
 
       socket.on('connect_error', () => {
         setSocketConnected(false);
+      });
+
+      socket.on('pair:request', (data) => {
+        pairRequestCallbackRef.current?.(data);
       });
 
       socket.on('clipboard:receive', async (item) => {

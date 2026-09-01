@@ -76,38 +76,35 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
   const currentPort = () => server?.address?.()?.port || PORT;
 
+  const pendingPairRequests = new Map();
+
   const getBaseUrl = (req) => {
-    // 1. Client origin passed from frontend
-    if (req.query?.origin && (req.query.origin.startsWith('http://') || req.query.origin.startsWith('https://'))) {
-      return req.query.origin;
+    // 0. Explicit interface IP selected by user
+    if (req.query?.interfaceIp && req.query.interfaceIp !== '127.0.0.1') {
+      return `http://${req.query.interfaceIp}:${currentPort()}`;
     }
 
-    // 2. Explicit environment variable overrides
+    // 1. Explicit environment variable overrides
     if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
     if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
 
-    // 3. Vercel / Proxy forwarded headers
+    // 2. Vercel / Proxy forwarded headers
     const forwardedHost = req.headers['x-forwarded-host'];
     const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
     if (forwardedHost) {
       return `${forwardedProto}://${forwardedHost}`;
     }
 
-    // 4. VERCEL_URL fallback
+    // 3. VERCEL_URL fallback
     if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
-    const hostHeader = req.get('host') || '';
-    const hostOnly = hostHeader.split(':')[0];
-
-    // 5. Fall back to primary LAN IP if host is loopback or Docker bridge
-    const isLoopback = hostOnly === 'localhost' || hostOnly === '127.0.0.1' || hostOnly === '[::1]';
-    const isDockerInternal = /^172\.(1[6-9]|2\d|3[01])\./.test(hostOnly) || hostOnly.startsWith('10.');
-
-    if (isLoopback || isDockerInternal) {
-      return getPrimaryLocalUrl(currentPort());
+    // 4. Client origin passed from frontend (only if NOT loopback)
+    if (req.query?.origin && !req.query.origin.includes('127.0.0.1') && !req.query.origin.includes('localhost')) {
+      return req.query.origin;
     }
 
-    return `${req.protocol}://${hostHeader}`;
+    // 5. Fall back to primary LAN IP
+    return getPrimaryLocalUrl(currentPort());
   };
 
   router.get('/info', (_req, res) => {
@@ -125,7 +122,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
     res.json({
       name: 'Universal Clipboard',
-      version: '0.1.2',
+      version: '0.1.3',
       port: actualPort,
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),
@@ -167,6 +164,104 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
     }
   });
 
+  // Pairing request (Step 1: Joining device asks for confirmation)
+  router.post('/pair/request', (req, res) => {
+    const { code, name, type, userAgent } = req.body || {};
+    if (!code || !name) {
+      return res.status(400).json({ error: 'code and name are required' });
+    }
+
+    const cleanCode = String(code).toUpperCase().trim();
+    const requestId = uuidv4();
+    const requestData = {
+      id: requestId,
+      code: cleanCode,
+      name: String(name).slice(0, 64),
+      type: type || 'unknown',
+      userAgent: userAgent || req.headers['user-agent'] || '',
+      clientIp: req.ip || req.socket.remoteAddress || '',
+      createdAt: Date.now(),
+      status: 'pending',
+      device: null,
+    };
+
+    pendingPairRequests.set(requestId, requestData);
+
+    // Notify connected host UIs to show confirmation dialog
+    socketEmitter.emit('pair:request', {
+      requestId,
+      name: requestData.name,
+      type: requestData.type,
+      code: requestData.code,
+      clientIp: requestData.clientIp,
+    });
+
+    // Auto-cleanup stale pending requests after 5 minutes
+    setTimeout(() => {
+      pendingPairRequests.delete(requestId);
+    }, 5 * 60 * 1000);
+
+    res.json({ ok: true, requestId, status: 'pending' });
+  });
+
+  // Pairing status poll (Step 2: Joining device polls until approved/declined)
+  router.get('/pair/status/:requestId', (req, res) => {
+    const { requestId } = req.params;
+    const requestData = pendingPairRequests.get(requestId);
+    if (!requestData) {
+      return res.status(404).json({ error: 'Pairing request expired or not found' });
+    }
+    res.json({
+      ok: true,
+      status: requestData.status,
+      device: requestData.device || null,
+    });
+  });
+
+  // Pairing approval (Step 3: Host approves connection)
+  router.post('/pair/approve', (req, res) => {
+    const { requestId } = req.body || {};
+    const requestData = pendingPairRequests.get(requestId);
+    if (!requestData) {
+      return res.status(404).json({ error: 'Pairing request expired or not found' });
+    }
+
+    // Consume the pairing code
+    consumePairingCode(requestData.code);
+
+    const device = createDevice({
+      name: requestData.name,
+      type: requestData.type,
+      userAgent: requestData.userAgent,
+    });
+
+    requestData.status = 'approved';
+    requestData.device = { id: device.id, name: device.name, type: device.type, token: device.token };
+
+    socketEmitter.emit('pair:approved', {
+      requestId,
+      device: requestData.device,
+    });
+
+    socketEmitter.emit('device:joined', {
+      device: { id: device.id, name: device.name, type: device.type },
+    });
+
+    res.json({ ok: true, device: requestData.device });
+  });
+
+  // Pairing decline (Host rejects connection)
+  router.post('/pair/decline', (req, res) => {
+    const { requestId } = req.body || {};
+    const requestData = pendingPairRequests.get(requestId);
+    if (requestData) {
+      requestData.status = 'declined';
+      socketEmitter.emit('pair:declined', { requestId });
+    }
+    res.json({ ok: true });
+  });
+
+  // Direct pairing verify (backward compatibility)
   router.post('/pair/verify', (req, res) => {
     const { code, name, type, userAgent } = req.body || {};
     if (!code || !name) {
@@ -180,6 +275,10 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       name: String(name).slice(0, 64),
       type: type || 'unknown',
       userAgent: userAgent || req.headers['user-agent'],
+    });
+
+    socketEmitter.emit('device:joined', {
+      device: { id: device.id, name: device.name, type: device.type },
     });
 
     res.json({ device: { id: device.id, name: device.name, type: device.type, token: device.token } });

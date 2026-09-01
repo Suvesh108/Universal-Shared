@@ -5,6 +5,7 @@ import { loadDevice, saveDevice, clearDevice, loadDeviceName, saveDeviceName, de
 export function useDevice() {
   const [device, setDevice] = useState(loadDevice);
   const [loading, setLoading] = useState(false);
+  const [waitingApproval, setWaitingApproval] = useState(false);
   const [error, setError] = useState(null);
 
   const register = async (name) => {
@@ -31,17 +32,68 @@ export function useDevice() {
   const pairWithCode = async (code, name) => {
     setLoading(true);
     setError(null);
+    setWaitingApproval(false);
     try {
-      const { device: d } = await api.verifyPair({
-        code: code.toUpperCase(),
-        name: name || defaultDeviceName(),
-        type: detectDeviceType(),
-        userAgent: navigator.userAgent,
-      });
-      saveDevice(d);
-      saveDeviceName(d.name);
-      setDevice(d);
-      return d;
+      // Step 1: Request pairing with host (triggers confirmation modal on host)
+      let reqResult = null;
+      try {
+        reqResult = await api.requestPair({
+          code: code.toUpperCase(),
+          name: name || defaultDeviceName(),
+          type: detectDeviceType(),
+          userAgent: navigator.userAgent,
+        });
+      } catch (reqErr) {
+        // Fallback to legacy direct verify
+        const { device: d } = await api.verifyPair({
+          code: code.toUpperCase(),
+          name: name || defaultDeviceName(),
+          type: detectDeviceType(),
+          userAgent: navigator.userAgent,
+        });
+        saveDevice(d);
+        saveDeviceName(d.name);
+        setDevice(d);
+        return d;
+      }
+
+      if (reqResult?.requestId) {
+        setWaitingApproval(true);
+        const startTime = Date.now();
+
+        // Poll every 1s for host approval
+        return await new Promise((resolve, reject) => {
+          const pollTimer = setInterval(async () => {
+            if (Date.now() - startTime > 120000) {
+              clearInterval(pollTimer);
+              setWaitingApproval(false);
+              setLoading(false);
+              reject(new Error('Pairing request timed out. Please try again.'));
+              return;
+            }
+
+            try {
+              const statusRes = await api.checkPairStatus(reqResult.requestId);
+              if (statusRes.status === 'approved' && statusRes.device) {
+                clearInterval(pollTimer);
+                setWaitingApproval(false);
+                setLoading(false);
+                saveDevice(statusRes.device);
+                saveDeviceName(statusRes.device.name);
+                setDevice(statusRes.device);
+                resolve(statusRes.device);
+              } else if (statusRes.status === 'declined') {
+                clearInterval(pollTimer);
+                setWaitingApproval(false);
+                setLoading(false);
+                reject(new Error('Connection request was declined by the host.'));
+              }
+            } catch (err) {
+              // Keep polling
+            }
+          }, 1000);
+        });
+      }
     } catch (err) {
       setError(err.message);
       throw err;
@@ -80,7 +132,7 @@ export function useDevice() {
     }
   };
 
-  return { device, loading, error, register, pairWithCode, logout, updateProfile };
+  return { device, loading, waitingApproval, error, register, pairWithCode, logout, updateProfile };
 }
 
 export function useServerInfo() {

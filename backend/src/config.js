@@ -47,15 +47,55 @@ export function getLocalAddresses() {
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name] || []) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        addresses.push({ name, address: iface.address });
+        let type = 'other';
+        const lowerName = name.toLowerCase();
+        const addr = iface.address;
+
+        if (/wi-?fi|wlan|wireless|airport/i.test(lowerName)) {
+          type = 'wifi';
+        } else if (/bluetooth/i.test(lowerName)) {
+          type = 'bluetooth';
+        } else if (/hotspot/i.test(lowerName) || addr.startsWith('192.168.137.') || addr.startsWith('192.168.43.')) {
+          type = 'hotspot';
+        } else if (/ethernet|lan/i.test(lowerName) && !/vethernet|virtual|docker|wsl/i.test(lowerName)) {
+          type = 'ethernet';
+        } else if (/vethernet|virtual|docker|wsl|vbox/i.test(lowerName)) {
+          type = 'virtual';
+        }
+
+        addresses.push({
+          name,
+          address: iface.address,
+          type,
+          label: `${name} (${iface.address})`
+        });
       }
     }
   }
 
+  // Sort: Wi-Fi first, then Ethernet, Hotspot, other 192.168/10, then Virtual last
+  addresses.sort((a, b) => {
+    const score = (item) => {
+      if (item.type === 'wifi') return 10;
+      if (item.type === 'hotspot') return 8;
+      if (item.type === 'ethernet') return 7;
+      if (item.address.startsWith('192.168.') && item.type !== 'virtual') return 6;
+      if (item.address.startsWith('10.') && item.type !== 'virtual') return 5;
+      if (item.type === 'other') return 3;
+      if (item.type === 'bluetooth') return 2;
+      return 1; // Virtual / fallback
+    };
+    return score(b) - score(a);
+  });
+
   return addresses;
 }
 
-export function getPrimaryLocalUrl(port = PORT) {
+export function getPrimaryLocalUrl(port = PORT, preferredIp = null) {
+  if (preferredIp && preferredIp !== '127.0.0.1') {
+    return `http://${preferredIp}:${port}`;
+  }
+
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`;
   }
@@ -82,9 +122,6 @@ export function getPrimaryLocalUrl(port = PORT) {
   }
 
   const addrs = getLocalAddresses();
-  const preferred = addrs.find((a) => a.address.startsWith('192.168.'))
-    || addrs.find((a) => a.address.startsWith('10.'))
-    || addrs[0];
-  const ip = preferred?.address || '127.0.0.1';
+  const ip = addrs[0]?.address || '127.0.0.1';
   return `http://${ip}:${port}`;
 }

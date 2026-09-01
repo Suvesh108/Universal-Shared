@@ -77,7 +77,7 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
   );
 }
 
-export function SetupScreen({ onRegister, onPair, initialCode, loading, error }) {
+export function SetupScreen({ onRegister, onPair, initialCode, loading, waitingApproval, error }) {
   const [name, setName] = useState(loadDeviceName() || '');
   const [code, setCode] = useState(initialCode || '');
   const [mode, setMode] = useState(initialCode ? 'pair' : 'register');
@@ -241,8 +241,17 @@ export function SetupScreen({ onRegister, onPair, initialCode, loading, error })
 
           {error && <p className="error-msg">{error}</p>}
 
+          {waitingApproval && (
+            <div style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', padding: '10px', borderRadius: '8px', fontSize: '0.82rem', marginBottom: '12px', textAlign: 'center', border: '1px solid rgba(99, 102, 241, 0.3)' }}>
+              ⏳ <strong>Waiting for Host Approval...</strong>
+              <div style={{ fontSize: '0.75rem', marginTop: '2px', color: 'var(--text-muted)' }}>
+                Please tap <strong>"Approve & Connect"</strong> on your computer screen.
+              </div>
+            </div>
+          )}
+
           <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Connecting…' : mode === 'pair' ? 'Pair device' : 'Start on this device'}
+            {waitingApproval ? 'Waiting for approval…' : loading ? 'Connecting…' : mode === 'pair' ? 'Pair device' : 'Start on this device'}
           </button>
         </form>
 

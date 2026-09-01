@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import Header, { SetupScreen } from './components/Header';
 import PairingModal from './components/PairingModal';
+import PairApprovalModal from './components/PairApprovalModal';
 import ProfileModal from './components/ProfileModal';
 import UpdateModal from './components/UpdateModal';
 import ClipboardInput from './components/ClipboardInput';
@@ -11,11 +12,11 @@ import { useClipboardHistory, copyToClipboard } from './hooks/useClipboard';
 import { useTheme } from './hooks/useTheme';
 import { saveDeviceName } from './utils/storage';
 import CustomDialog from './components/CustomDialog';
-import { api } from './utils/api';
+import { api, setServerUrl } from './utils/api';
 import { checkForUpdate } from './utils/updater';
 
 export default function App() {
-  const { device, loading, error, register, pairWithCode, logout, updateProfile } = useDevice();
+  const { device, loading, waitingApproval, error, register, pairWithCode, logout, updateProfile } = useDevice();
   const serverInfo = useServerInfo();
   const initialCode = useInitialPairCode();
   const { toggle, isDark } = useTheme();
@@ -28,6 +29,7 @@ export default function App() {
   const [dialog, setDialog] = useState(null);
   const [isHistoryEnlarged, setIsHistoryEnlarged] = useState(false);
   const [devicesList, setDevicesList] = useState([]);
+  const [pendingPairRequest, setPendingPairRequest] = useState(null);
 
   useEffect(() => {
     if (device?.token) {
@@ -89,7 +91,11 @@ export default function App() {
     }
   }, [prepend, showToast]);
 
-  const { connected, sendText } = useSocket(device?.token, onReceive);
+  const handlePairRequest = useCallback((reqData) => {
+    setPendingPairRequest(reqData);
+  }, []);
+
+  const { connected, sendText } = useSocket(device?.token, onReceive, handlePairRequest);
 
   const handleTheme = () => {
     toggle();
@@ -130,6 +136,7 @@ export default function App() {
       <SetupScreen
         initialCode={initialCode}
         loading={loading}
+        waitingApproval={waitingApproval}
         error={error}
         onRegister={(name) => {
           saveDeviceName(name);
@@ -144,7 +151,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app-container">
       <Header
         connected={connected}
         serverInfo={serverInfo}
@@ -203,12 +210,29 @@ export default function App() {
       <PairingModal
         open={showPair}
         onClose={() => setShowPair(false)}
+        serverInfo={serverInfo}
         onPairWithCode={(code, serverUrl) => {
           if (serverUrl) setServerUrl(serverUrl);
           pairWithCode(code);
           showToast('Device paired successfully!');
         }}
       />
+
+      <PairApprovalModal
+        request={pendingPairRequest}
+        onResolved={(approved, req) => {
+          setPendingPairRequest(null);
+          if (approved) {
+            showToast(`Approved connection for ${req?.name || 'device'}!`);
+            if (device?.token) {
+              api.listDevices(device.token).then((res) => setDevicesList(res.devices || [])).catch(() => {});
+            }
+          } else {
+            showToast(`Declined connection for ${req?.name || 'device'}.`);
+          }
+        }}
+      />
+
       <ProfileModal
         open={showProfile}
         onClose={() => setShowProfile(false)}
@@ -225,7 +249,7 @@ export default function App() {
             setUpdateInfo(info);
             setShowUpdateModal(true);
           } else {
-            showAlert('You are using the latest version of Universal Shared (v0.1.1).', 'Up to Date');
+            showAlert('You are using the latest version of Universal Shared (v0.1.3).', 'Up to Date');
           }
         }}
       />
