@@ -18,6 +18,9 @@ function getItemPlatform(item) {
   ) {
     return 'android';
   }
+  if (t === 'linux' || n.includes('linux') || n.includes('ubuntu') || n.includes('debian') || n.includes('arch') || n.includes('fedora')) {
+    return 'linux';
+  }
   return 'windows';
 }
 
@@ -38,6 +41,13 @@ function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
   const isOwn = item.deviceId === currentDeviceId;
   const platform = getItemPlatform(item);
   const isAndroid = platform === 'android';
+  const isLinux = platform === 'linux';
+
+  const badgeBg = isAndroid ? 'rgba(34, 197, 94, 0.15)' : isLinux ? 'rgba(234, 179, 8, 0.15)' : 'rgba(56, 189, 248, 0.15)';
+  const badgeColor = isAndroid ? '#4ade80' : isLinux ? '#facc15' : '#38bdf8';
+  const badgeBorder = isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : isLinux ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)';
+  const badgeIcon = isAndroid ? '📱' : isLinux ? '🐧' : '💻';
+  const badgeLabel = isAndroid ? 'Android' : isLinux ? 'Linux' : 'Windows';
 
   return (
     <div className={`history-row ${isOwn ? 'align-left' : 'align-right'}`}>
@@ -54,13 +64,13 @@ function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
-                  background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                  color: isAndroid ? '#4ade80' : '#38bdf8',
-                  border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)'
+                  background: badgeBg,
+                  color: badgeColor,
+                  border: badgeBorder
                 }}
               >
-                <span>{isAndroid ? '📱' : '💻'}</span>
-                {isAndroid ? 'Android' : 'Windows'}
+                <span>{badgeIcon}</span>
+                {badgeLabel}
               </span>
               <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {item.deviceName}

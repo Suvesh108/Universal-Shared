@@ -107,9 +107,30 @@ export default function SettingsModal({
     }
   };
 
-  const isAndroid = editType === 'android' || editType === 'ios' || editName?.toLowerCase().includes('phone') || editName?.toLowerCase().includes('android');
+  const isAndroid = editType === 'android' || editName?.toLowerCase().includes('phone') || editName?.toLowerCase().includes('android');
+  const isLinux = editType === 'linux' || editName?.toLowerCase().includes('linux');
+
+  const getPlatformIcon = (type, name = '') => {
+    if (type === 'android' || name.toLowerCase().includes('phone') || name.toLowerCase().includes('android')) return '📱';
+    if (type === 'linux' || name.toLowerCase().includes('linux')) return '🐧';
+    return '💻';
+  };
+
+  const getPlatformLabel = (type, name = '') => {
+    if (type === 'android' || name.toLowerCase().includes('phone') || name.toLowerCase().includes('android')) return 'Android';
+    if (type === 'linux' || name.toLowerCase().includes('linux')) return 'Linux';
+    return 'Windows';
+  };
 
   const otherDevices = devices.filter((d) => d.id !== device.id);
+
+  const sections = [
+    { id: 'general', label: '👤 Device Profile', desc: 'Name & platform settings' },
+    { id: 'devices', label: `🌐 Connected Devices (${otherDevices.length})`, desc: 'Manage paired cluster nodes' },
+    { id: 'appearance', label: '🎨 Theme & Appearance', desc: 'Dark / Light mode selection' },
+    { id: 'network', label: '📡 Connection & Endpoints', desc: 'Server URL & Wi-Fi IP override' },
+    { id: 'about', label: 'ℹ️ About Universal Shared', desc: 'Version v0.2.1 and updates' }
+  ];
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
@@ -118,7 +139,7 @@ export default function SettingsModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: '680px',
+          maxWidth: '640px',
           maxHeight: '85vh',
           background: 'var(--bg-card, #121214)',
           border: '1px solid var(--border, rgba(255,255,255,0.1))',
@@ -129,7 +150,7 @@ export default function SettingsModal({
           overflow: 'hidden'
         }}
       >
-        {/* Modern Modal Header */}
+        {/* Modal Header */}
         <div
           style={{
             display: 'flex',
@@ -143,22 +164,22 @@ export default function SettingsModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
+                width: '34px',
+                height: '34px',
                 borderRadius: '8px',
                 background: 'var(--accent-bg, rgba(99,102,241,0.15))',
                 color: 'var(--accent, #6366f1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '1.1rem'
+                fontSize: '1.15rem'
               }}
             >
               ⚙️
             </div>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', letterSpacing: '-0.02em' }}>Preferences & Settings</h2>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Universal Shared v0.2.0</div>
+              <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: '700', letterSpacing: '-0.02em' }}>Settings</h2>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Universal Shared v0.2.1</div>
             </div>
           </div>
 
@@ -182,51 +203,60 @@ export default function SettingsModal({
           </button>
         </div>
 
-        {/* Horizontal Navigation Bar (Pill Bar) */}
+        {/* Dropdown Section Selector (Zero Horizontal Scroll!) */}
         <div
           style={{
-            display: 'flex',
-            gap: '6px',
-            padding: '8px 1.5rem',
+            padding: '12px 1.5rem',
             borderBottom: '1px solid var(--border)',
             background: 'var(--bg, #09090b)',
-            overflowX: 'auto'
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
           }}
         >
-          {[
-            { id: 'general', label: 'Device Profile', icon: '👤' },
-            { id: 'devices', label: `Network (${otherDevices.length})`, icon: '🌐' },
-            { id: 'appearance', label: 'Theme', icon: '🎨' },
-            { id: 'network', label: 'Connection', icon: '📡' },
-            { id: 'about', label: 'About', icon: 'ℹ️' }
-          ].map((tab) => {
-            const isActive = activeSection === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSection(tab.id)}
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: '20px',
-                  border: isActive ? '1px solid var(--accent)' : '1px solid transparent',
-                  background: isActive ? 'var(--accent-bg, rgba(99,102,241,0.15))' : 'transparent',
-                  color: isActive ? 'var(--text)' : 'var(--text-muted)',
-                  fontWeight: isActive ? '600' : '400',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
+          <label style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            Section:
+          </label>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <select
+              value={activeSection}
+              onChange={(e) => setActiveSection(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.6rem 2.2rem 0.6rem 0.85rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+                color: 'var(--text)',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                outline: 'none',
+                cursor: 'pointer',
+                appearance: 'none',
+                WebkitAppearance: 'none',
+                MozAppearance: 'none'
+              }}
+            >
+              {sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+            <span
+              style={{
+                position: 'absolute',
+                right: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)'
+              }}
+            >
+              ▼
+            </span>
+          </div>
         </div>
 
         {/* Scrollable Content Body */}
@@ -251,21 +281,21 @@ export default function SettingsModal({
                     width: '54px',
                     height: '54px',
                     borderRadius: '14px',
-                    background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                    border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                    background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : isLinux ? 'rgba(234, 179, 8, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                    border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : isLinux ? '1px solid rgba(234, 179, 8, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: '1.8rem'
                   }}
                 >
-                  {isAndroid ? '📱' : '💻'}
+                  {getPlatformIcon(editType, editName)}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: '700', fontSize: '1.1rem' }}>{editName || device.name}</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
                     <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }} />
-                    Active Local Cluster Node • {isAndroid ? 'Android' : 'Windows PC'}
+                    Active Local Cluster Node • {getPlatformLabel(editType, editName)}
                   </div>
                 </div>
               </div>
@@ -281,7 +311,7 @@ export default function SettingsModal({
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     maxLength={64}
-                    placeholder="e.g., Workstation Laptop, Suvesh Pixel"
+                    placeholder="e.g., Workstation PC, Suvesh Android, Linux Server"
                     style={{
                       width: '100%',
                       padding: '0.65rem 0.85rem',
@@ -302,13 +332,11 @@ export default function SettingsModal({
                   <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '600', marginBottom: '6px' }}>
                     Device Platform Type
                   </label>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
                     {[
                       { type: 'windows', label: 'Windows PC', icon: '💻' },
                       { type: 'android', label: 'Android Phone', icon: '📱' },
-                      { type: 'mac', label: 'Apple Mac', icon: '🍏' },
-                      { type: 'ios', label: 'iPhone / iPad', icon: '🍎' },
-                      { type: 'unknown', label: 'Other OS', icon: '🔌' }
+                      { type: 'linux', label: 'Linux PC', icon: '🐧' }
                     ].map((t) => {
                       const selected = editType === t.type;
                       return (
@@ -316,19 +344,21 @@ export default function SettingsModal({
                           key={t.type}
                           onClick={() => setEditType(t.type)}
                           style={{
-                            padding: '10px',
+                            padding: '12px 10px',
                             borderRadius: '10px',
-                            border: selected ? '2px solid var(--accent)' : '1px solid var(--border)',
-                            background: selected ? 'var(--accent-bg)' : 'var(--bg-elevated)',
+                            border: selected ? '2px solid var(--accent, #6366f1)' : '1px solid var(--border)',
+                            background: selected ? 'var(--accent-bg, rgba(99,102,241,0.15))' : 'var(--bg-elevated)',
                             cursor: 'pointer',
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            gap: '8px',
-                            transition: 'all 0.15s ease'
+                            gap: '6px',
+                            transition: 'all 0.15s ease',
+                            textAlign: 'center'
                           }}
                         >
-                          <span style={{ fontSize: '1.2rem' }}>{t.icon}</span>
-                          <span style={{ fontSize: '0.82rem', fontWeight: selected ? '600' : '400' }}>{t.label}</span>
+                          <span style={{ fontSize: '1.6rem' }}>{t.icon}</span>
+                          <span style={{ fontSize: '0.82rem', fontWeight: selected ? '700' : '500' }}>{t.label}</span>
                         </div>
                       );
                     })}
@@ -391,13 +421,14 @@ export default function SettingsModal({
                   <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📡</div>
                   <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>No Other Devices Paired</div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Click "Pair Device" in the top header to connect your phone or laptop.
+                    Click "Pair Device" in the top header to connect your phone, PC, or Linux machine.
                   </div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {otherDevices.map((d) => {
-                    const isDevAndroid = d.type === 'android' || d.type === 'ios' || d.name?.toLowerCase().includes('phone') || d.name?.toLowerCase().includes('android');
+                    const devIcon = getPlatformIcon(d.type, d.name);
+                    const devLabel = getPlatformLabel(d.type, d.name);
 
                     return (
                       <div
@@ -418,20 +449,20 @@ export default function SettingsModal({
                               width: '38px',
                               height: '38px',
                               borderRadius: '8px',
-                              background: isDevAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
-                              border: isDevAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                              background: 'var(--accent-bg, rgba(99,102,241,0.12))',
+                              border: '1px solid var(--border)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               fontSize: '1.25rem'
                             }}
                           >
-                            {isDevAndroid ? '📱' : '💻'}
+                            {devIcon}
                           </div>
                           <div>
                             <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{d.name}</div>
                             <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>{isDevAndroid ? 'Android' : 'Windows'}</span>
+                              <span>{devLabel}</span>
                               <span>•</span>
                               <span style={{ color: d.online ? '#10b981' : '#a1a1aa' }}>
                                 {d.online ? '🟢 Online' : d.stale ? '⚪ Offline' : '🟡 Idle'}
@@ -549,7 +580,7 @@ export default function SettingsModal({
                   }}
                 />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Target server endpoint used by the mobile APK to sync with PC.
+                  Target server endpoint used by the mobile APK or Linux client to sync.
                 </div>
               </div>
 
@@ -575,7 +606,7 @@ export default function SettingsModal({
                   }}
                 />
                 <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Overrides QR code IP generation if virtual adapters (e.g., WSL/VPN) conflict.
+                  Overrides QR code IP generation if virtual adapters conflict.
                 </div>
               </div>
 
@@ -610,7 +641,7 @@ export default function SettingsModal({
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>Universal Shared</h3>
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Version <strong>v0.2.0</strong> (Latest)
+                    Version <strong>v0.2.1</strong> (Latest)
                   </div>
                   <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '4px' }}>
                     🔒 AES-256-GCM End-to-End Encrypted
@@ -634,7 +665,7 @@ export default function SettingsModal({
               )}
 
               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                Universal Shared is an open-source cross-platform local sync utility providing instant clipboard and file sharing between Windows, Android, Mac, and Linux without intermediate cloud servers.
+                Universal Shared is a zero-configuration local network synchronization utility for Windows, Android, and Linux.
               </div>
             </div>
           )}

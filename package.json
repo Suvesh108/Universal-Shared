@@ -1,6 +1,6 @@
 {
   "name": "universal-shared",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Instant cross-platform clipboard & file sharing on local network",
   "type": "module",
@@ -19,7 +19,8 @@
     "server": "npm run start --prefix backend",
     "client": "npm run dev --prefix frontend",
     "electron:dev": "electron .",
-    "dist:exe": "electron-builder --win"
+    "dist:exe": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "build": {
     "appId": "com.universalshared.desktop",
@@ -62,6 +63,15 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "Universal Shared"
+    },
+    "linux": {
+      "target": [
+        "tar.gz",
+        "zip"
+      ],
+      "icon": "build/icon.png",
+      "category": "Utility",
+      "maintainer": "Universal Shared Contributors"
     }
   },
   "dependencies": {
