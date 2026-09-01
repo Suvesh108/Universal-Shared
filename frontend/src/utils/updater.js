@@ -80,8 +80,6 @@ export async function downloadAndInstallUpdate(updateInfo, onProgress) {
               }
               if (progRes.ready) {
                 clearInterval(checkTimer);
-                // Trigger installer
-                await fetch(apiUrl('/api/system/install-update'), { method: 'POST' });
                 resolve({ ready: true, platform: 'android' });
               } else if (progRes.error) {
                 clearInterval(checkTimer);

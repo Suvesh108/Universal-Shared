@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { downloadAndInstallUpdate } from '../utils/updater';
+import { apiUrl, isCapacitor } from '../utils/api';
 
 export default function UpdateModal({ open, onClose, updateInfo }) {
   const [downloading, setDownloading] = useState(false);
@@ -34,11 +35,31 @@ export default function UpdateModal({ open, onClose, updateInfo }) {
     }
   };
 
-  const handleApplyRestart = () => {
+  const handleApplyRestart = async () => {
     if (window.electronAPI?.applyUpdate) {
       window.electronAPI.applyUpdate();
-    } else {
+      return;
+    }
+
+    // Android / Standalone Native Mode
+    try {
+      const res = await fetch(apiUrl('/api/system/install-update'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then((r) => r.json());
+
+      if (res?.needsPermission) {
+        setError('Please enable "Install unknown apps" for Universal Shared, then tap Install & Restart again.');
+        return;
+      }
+      if (res?.error) {
+        setError(res.error);
+        return;
+      }
       onClose();
+    } catch (e) {
+      console.warn('Install trigger error:', e);
+      setError(e.message || 'Failed to trigger package installer');
     }
   };
 
@@ -77,7 +98,7 @@ export default function UpdateModal({ open, onClose, updateInfo }) {
           {downloading && (
             <div style={{ marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '6px' }}>
-                <span>{downloaded ? 'Ready to Install!' : 'Downloading update internally...'}</span>
+                <span>{downloaded ? 'Download Complete!' : 'Downloading update internally...'}</span>
                 <strong>{progress}%</strong>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'var(--border, #333)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -120,7 +141,7 @@ export default function UpdateModal({ open, onClose, updateInfo }) {
                 style={{ background: '#10b981', borderColor: '#10b981' }}
                 onClick={handleApplyRestart}
               >
-                Restart & Apply
+                {isCapacitor() ? 'Install & Restart' : 'Restart & Apply'}
               </button>
             )}
           </div>

@@ -235,14 +235,28 @@ public class LocalHttpServer {
             File apkFile = new File(context.getExternalFilesDir(null), "universal-shared-update.apk");
             if (apkFile.exists()) {
                 try {
+                    // Check if unknown sources installation is permitted on Android 8.0+ (API 26+)
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        if (!context.getPackageManager().canRequestPackageInstalls()) {
+                            Intent manageIntent = new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES);
+                            manageIntent.setData(Uri.parse("package:" + context.getPackageName()));
+                            manageIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            context.startActivity(manageIntent);
+                            sendJsonResponse(out, 200, new JSONObject().put("ok", true).put("needsPermission", true));
+                            return;
+                        }
+                    }
+
                     Uri apkUri = FileProvider.getUriForFile(context, context.getPackageName() + ".fileprovider", apkFile);
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     context.startActivity(intent);
                     sendJsonResponse(out, 200, new JSONObject().put("ok", true));
                 } catch (Exception e) {
+                    Log.e(TAG, "Install intent error: " + e.getMessage(), e);
                     sendJsonResponse(out, 500, new JSONObject().put("error", e.getMessage()));
                 }
             } else {
