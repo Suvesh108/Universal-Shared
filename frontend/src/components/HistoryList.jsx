@@ -2,44 +2,23 @@ import { useEffect, useState } from 'react';
 import { api, formatTime, formatBytes } from '../utils/api';
 import { copyToClipboard } from '../hooks/useClipboard';
 
-function getTypeIcon(type) {
-  switch (type) {
-    case 'text':
-      return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-      );
-    case 'link':
-      return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-        </svg>
-      );
-    case 'image':
-      return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <polyline points="21 15 16 10 5 21"/>
-        </svg>
-      );
-    case 'video':
-      return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polygon points="23 7 16 12 23 17 23 7"/>
-          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-        </svg>
-      );
-    default:
-      return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/>
-        </svg>
-      );
+function getItemPlatform(item) {
+  const t = (item.deviceType || '').toLowerCase();
+  const n = (item.deviceName || '').toLowerCase();
+  if (
+    t === 'android' ||
+    t === 'ios' ||
+    n.includes('android') ||
+    n.includes('phone') ||
+    n.includes('pixel') ||
+    n.includes('samsung') ||
+    n.includes('galaxy') ||
+    n.includes('xiaomi') ||
+    n.includes('mobile')
+  ) {
+    return 'android';
   }
+  return 'windows';
 }
 
 function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
@@ -57,15 +36,41 @@ function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
 
   const isFile = item.type === 'file' || item.type === 'image' || item.type === 'video';
   const isOwn = item.deviceId === currentDeviceId;
+  const platform = getItemPlatform(item);
+  const isAndroid = platform === 'android';
 
   return (
     <div className={`history-row ${isOwn ? 'align-left' : 'align-right'}`}>
       <div className="history-bubble-wrapper">
         <div className="history-bubble">
-          <div className="history-bubble-header">
-            <strong>{item.deviceName}</strong>
-            <span>{formatTime(item.createdAt)}</span>
-            {item.size > 0 && <span>({formatBytes(item.size)})</span>}
+          <div className="history-bubble-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '1px 6px',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                  color: isAndroid ? '#4ade80' : '#38bdf8',
+                  border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)'
+                }}
+              >
+                <span>{isAndroid ? '📱' : '💻'}</span>
+                {isAndroid ? 'Android' : 'Windows'}
+              </span>
+              <strong style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {item.deviceName}
+              </strong>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-muted)', flexShrink: 0 }}>
+              <span>{formatTime(item.createdAt)}</span>
+              {item.size > 0 && <span>({formatBytes(item.size)})</span>}
+            </div>
           </div>
 
           <div className="history-body" onClick={() => setExpanded(!expanded)}>
@@ -128,11 +133,36 @@ function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
   );
 }
 
-export default function HistoryList({ token, currentDeviceId, items, loading, onRefresh, onRemove, onClear, onToast, showAlert, showConfirm, isEnlarged, onToggleResize }) {
+export default function HistoryList({
+  token,
+  currentDeviceId,
+  items,
+  loading,
+  onRefresh,
+  onRemove,
+  onClear,
+  onToast,
+  showAlert,
+  showConfirm,
+  isEnlarged,
+  onToggleResize
+}) {
+  // Tab filter: 'all' | 'windows' | 'android'
+  const [activeTab, setActiveTab] = useState('all');
+
+  const windowsItems = items.filter((it) => getItemPlatform(it) === 'windows');
+  const androidItems = items.filter((it) => getItemPlatform(it) === 'android');
+
+  const filteredItems =
+    activeTab === 'windows' ? windowsItems : activeTab === 'android' ? androidItems : items;
+
   return (
     <section className="card history-section">
-      <div className="section-header">
-        <h2>Clipboard History</h2>
+      <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 style={{ margin: 0 }}>Clipboard History</h2>
+        </div>
+
         <div className="section-actions">
           <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh}>
             Refresh
@@ -146,7 +176,7 @@ export default function HistoryList({ token, currentDeviceId, items, loading, on
             type="button"
             className="btn btn-ghost btn-sm"
             onClick={onToggleResize}
-            title={isEnlarged ? "Collapse clipboard history" : "Expand clipboard history"}
+            title={isEnlarged ? 'Collapse clipboard history' : 'Expand clipboard history'}
             style={{ marginLeft: '2px' }}
           >
             {isEnlarged ? (
@@ -174,17 +204,108 @@ export default function HistoryList({ token, currentDeviceId, items, loading, on
         </div>
       </div>
 
+      {/* Separate Windows & Android History Tabs */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '6px',
+          padding: '4px',
+          background: 'var(--bg-elevated, #18181b)',
+          borderRadius: '10px',
+          border: '1px solid var(--border, #27272a)',
+          marginBottom: '1rem'
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          style={{
+            flex: 1,
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeTab === 'all' ? 'var(--primary, #6366f1)' : 'transparent',
+            color: activeTab === 'all' ? '#fff' : 'var(--text-muted)',
+            fontWeight: activeTab === 'all' ? '600' : '400',
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+        >
+          <span>🌐</span>
+          All ({items.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('windows')}
+          style={{
+            flex: 1,
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeTab === 'windows' ? '#0284c7' : 'transparent',
+            color: activeTab === 'windows' ? '#fff' : 'var(--text-muted)',
+            fontWeight: activeTab === 'windows' ? '600' : '400',
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+        >
+          <span>💻</span>
+          Windows ({windowsItems.length})
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('android')}
+          style={{
+            flex: 1,
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: 'none',
+            background: activeTab === 'android' ? '#16a34a' : 'transparent',
+            color: activeTab === 'android' ? '#fff' : 'var(--text-muted)',
+            fontWeight: activeTab === 'android' ? '600' : '400',
+            fontSize: '0.82rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px'
+          }}
+        >
+          <span>📱</span>
+          Android ({androidItems.length})
+        </button>
+      </div>
+
       {loading && items.length === 0 && <div className="empty-state">Loading…</div>}
 
-      {!loading && items.length === 0 && (
+      {!loading && filteredItems.length === 0 && (
         <div className="empty-state">
-          <span>📬</span>
-          <p>No clipboard items yet. Send something from any paired device.</p>
+          <span>{activeTab === 'windows' ? '💻' : activeTab === 'android' ? '📱' : '📬'}</span>
+          <p>
+            {activeTab === 'windows'
+              ? 'No clipboard items from Windows devices yet.'
+              : activeTab === 'android'
+              ? 'No clipboard items from Android devices yet.'
+              : 'No clipboard items yet. Send something from any paired device.'}
+          </p>
         </div>
       )}
 
       <div className="history-list">
-        {items.map((item) => (
+        {filteredItems.map((item) => (
           <HistoryItem
             key={item.id}
             item={item}
@@ -203,7 +324,7 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
 
   const refresh = () => {
     if (!token) return;
-    api.listDevices(token).then((d) => setDevices(d.devices)).catch(() => {});
+    api.listDevices(token).then((d) => setDevices(d.devices || [])).catch(() => {});
   };
 
   const handleDelete = async (id) => {
@@ -226,37 +347,6 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
     return () => clearInterval(t);
   }, [token]);
 
-  const getDeviceIconSvg = (type) => {
-    switch (type) {
-      case 'windows':
-      case 'mac':
-        return (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>
-        );
-      case 'android':
-      case 'ios':
-        return (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-            <line x1="12" y1="18" x2="12.01" y2="18"/>
-          </svg>
-        );
-      default:
-        return (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-            <line x1="6" y1="6" x2="6.01" y2="6"/>
-            <line x1="6" y1="18" x2="6.01" y2="18"/>
-          </svg>
-        );
-    }
-  };
-
   const otherDevices = devices.filter((d) => d.id !== currentDeviceId);
 
   return (
@@ -270,33 +360,67 @@ export function DeviceList({ token, currentDeviceId, showConfirm, showAlert }) {
         <div className="empty-state small">No other paired devices yet.</div>
       ) : (
         <ul className="device-list">
-          {otherDevices.map((d) => (
-            <li key={d.id} className={d.online ? 'online' : ''}>
-              <span className="device-icon" style={{ opacity: d.online ? 1 : 0.5 }}>
-                {getDeviceIconSvg(d.type)}
-              </span>
-              <div className="device-info">
-                <div className="device-name-row">
-                  <strong>{d.name}</strong>
-                  <span className="device-status-badge">
-                    {d.online ? 'Active' : d.stale ? 'Offline' : 'Idle'}
-                  </span>
+          {otherDevices.map((d) => {
+            const isAndroid = d.type === 'android' || d.type === 'ios' || d.name?.toLowerCase().includes('phone') || d.name?.toLowerCase().includes('pixel') || d.name?.toLowerCase().includes('android');
+
+            return (
+              <li key={d.id} className={d.online ? 'online' : ''} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.25rem',
+                    background: isAndroid ? 'rgba(34, 197, 94, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                    border: isAndroid ? '1px solid rgba(34, 197, 94, 0.3)' : '1px solid rgba(56, 189, 248, 0.3)',
+                    flexShrink: 0
+                  }}
+                >
+                  {isAndroid ? '📱' : '💻'}
                 </div>
-              </div>
-              <button
-                type="button"
-                className="btn-icon"
-                onClick={() => handleDelete(d.id)}
-                title="Unpair device"
-                style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', padding: '0.25rem' }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--danger)' }}>
-                  <polyline points="3 6 5 6 21 6"/>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                </svg>
-              </button>
-            </li>
-          ))}
+
+                <div className="device-info" style={{ flex: 1, minWidth: 0 }}>
+                  <div className="device-name-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                    <strong style={{ fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {d.name}
+                    </strong>
+                    <span
+                      className="device-status-badge"
+                      style={{
+                        fontSize: '0.68rem',
+                        padding: '1px 6px',
+                        borderRadius: '4px',
+                        background: isAndroid ? 'rgba(34, 197, 94, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                        color: isAndroid ? '#4ade80' : '#38bdf8',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {isAndroid ? 'Android' : 'Windows'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    {d.online ? '🟢 Connected' : d.stale ? '⚪ Offline' : '🟡 Idle'}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => handleDelete(d.id)}
+                  title="Unpair device"
+                  style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', padding: '0.25rem' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--danger)' }}>
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

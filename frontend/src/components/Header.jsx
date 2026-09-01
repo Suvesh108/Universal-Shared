@@ -4,7 +4,9 @@ import { loadDeviceName } from '../utils/storage';
 import AppLogo from './AppLogo';
 import QrScannerModal from './QrScannerModal';
 
-export default function Header({ connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick }) {
+export default function Header({ device, connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick }) {
+  const isAndroid = device?.type === 'android' || device?.type === 'ios' || device?.name?.toLowerCase()?.includes('phone') || device?.name?.toLowerCase()?.includes('android');
+
   return (
     <header className="header">
       <div className="header-brand">
@@ -40,13 +42,28 @@ export default function Header({ connected, serverInfo, onPairClick, onThemeTogg
           </div>
         </div>
       </div>
-      <div className="header-actions">
-        <button type="button" className="btn btn-icon" onClick={onProfileClick} title="Device Profile">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onProfileClick}
+          title="Device Profile"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 10px',
+            border: isAndroid ? '1px solid rgba(34, 197, 94, 0.4)' : '1px solid rgba(56, 189, 248, 0.4)',
+            background: isAndroid ? 'rgba(34, 197, 94, 0.1)' : 'rgba(56, 189, 248, 0.1)',
+            color: isAndroid ? '#4ade80' : '#38bdf8'
+          }}
+        >
+          <span style={{ fontSize: '1.1rem' }}>{isAndroid ? '📱' : '💻'}</span>
+          <span className="btn-text" style={{ fontWeight: '600', fontSize: '0.8rem' }}>
+            {device?.name || (isAndroid ? 'Android' : 'Windows')}
+          </span>
         </button>
+
         <button type="button" className="btn btn-icon" onClick={onThemeToggle} title="Toggle theme">
           {isDark ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

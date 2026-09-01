@@ -153,6 +153,7 @@ export default function App() {
   return (
     <div className="app-container">
       <Header
+        device={device}
         connected={connected}
         serverInfo={serverInfo}
         onPairClick={() => setShowPair(true)}
