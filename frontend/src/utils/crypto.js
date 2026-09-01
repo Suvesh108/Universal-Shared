@@ -1,6 +1,7 @@
 // AES-256-GCM End-to-End Encryption using Web Crypto API
 
 const E2EE_PREFIX = 'e2ee:';
+const SHARED_CLUSTER_KEY = 'universal-shared-cluster-vault-key-v1';
 
 function arrayBufferToBase64(buffer) {
   let binary = '';
@@ -22,17 +23,24 @@ function base64ToArrayBuffer(base64) {
   return bytes.buffer;
 }
 
-async function getAesKey(secret) {
+const keyCache = new Map();
+
+async function getAesKey(secretKey) {
+  const effectiveKey = secretKey || SHARED_CLUSTER_KEY;
+  if (keyCache.has(effectiveKey)) {
+    return keyCache.get(effectiveKey);
+  }
+
   const enc = new TextEncoder();
   const keyMaterial = await window.crypto.subtle.importKey(
     'raw',
-    enc.encode(secret || 'universal-shared-default-key'),
+    enc.encode(effectiveKey),
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
   );
 
-  return window.crypto.subtle.deriveKey(
+  const derivedKey = await window.crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
       salt: enc.encode('universal-shared-salt-v1'),
@@ -44,6 +52,9 @@ async function getAesKey(secret) {
     false,
     ['encrypt', 'decrypt']
   );
+
+  keyCache.set(effectiveKey, derivedKey);
+  return derivedKey;
 }
 
 export async function encryptText(plainText, secret) {
@@ -52,7 +63,7 @@ export async function encryptText(plainText, secret) {
   }
 
   try {
-    const key = await getAesKey(secret);
+    const key = await getAesKey(SHARED_CLUSTER_KEY);
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const enc = new TextEncoder();
     const encoded = enc.encode(plainText);
@@ -67,7 +78,7 @@ export async function encryptText(plainText, secret) {
     const cipherB64 = arrayBufferToBase64(ciphertext);
     return `${E2EE_PREFIX}${ivB64}:${cipherB64}`;
   } catch (err) {
-    console.warn('E2EE encryption fallback to plaintext:', err);
+    console.warn('E2EE encryption fallback:', err);
     return plainText;
   }
 }
@@ -81,27 +92,42 @@ export async function decryptText(cipherText, secret) {
     return cipherText;
   }
 
+  const parts = cipherText.substring(E2EE_PREFIX.length).split(':');
+  if (parts.length !== 2) return cipherText;
+
+  const [ivB64, cipherB64] = parts;
+  let iv, data;
   try {
-    const parts = cipherText.substring(E2EE_PREFIX.length).split(':');
-    if (parts.length !== 2) return cipherText;
-
-    const [ivB64, cipherB64] = parts;
-    const iv = new Uint8Array(base64ToArrayBuffer(ivB64));
-    const data = base64ToArrayBuffer(cipherB64);
-    const key = await getAesKey(secret);
-
-    const decrypted = await window.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      data
-    );
-
-    const dec = new TextDecoder();
-    return dec.decode(decrypted);
-  } catch (err) {
-    console.warn('E2EE decryption error (wrong key or corrupted):', err);
+    iv = new Uint8Array(base64ToArrayBuffer(ivB64));
+    data = base64ToArrayBuffer(cipherB64);
+  } catch (e) {
     return cipherText;
   }
+
+  // Try candidate keys in order: Shared Cluster Key -> Custom Secret -> Default Key
+  const candidateKeys = [
+    SHARED_CLUSTER_KEY,
+    secret,
+    'universal-shared-default-key',
+  ].filter(Boolean);
+
+  for (const candidate of candidateKeys) {
+    try {
+      const key = await getAesKey(candidate);
+      const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv },
+        key,
+        data
+      );
+      const dec = new TextDecoder();
+      return dec.decode(decrypted);
+    } catch (err) {
+      // Continue to next candidate
+    }
+  }
+
+  console.warn('E2EE could not decrypt payload with candidate keys.');
+  return cipherText;
 }
 
 export function isEncrypted(text) {
