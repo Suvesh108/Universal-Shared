@@ -4,7 +4,7 @@ import { loadDeviceName } from '../utils/storage';
 import AppLogo from './AppLogo';
 import QrScannerModal from './QrScannerModal';
 
-export default function Header({ device, connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick, onHistoryClick, historyCount = 0 }) {
+export default function Header({ device, connected, serverInfo, onPairClick, onThemeToggle, isDark, onProfileClick, onHistoryClick, hasUnread = false }) {
   const isAndroid = device?.type === 'android' || device?.type === 'ios' || device?.name?.toLowerCase()?.includes('phone') || device?.name?.toLowerCase()?.includes('android');
 
   return (
@@ -46,32 +46,37 @@ export default function Header({ device, connected, serverInfo, onPairClick, onT
         {onHistoryClick && (
           <button
             type="button"
-            className="btn btn-secondary history-header-btn"
+            className="btn btn-icon history-header-btn"
             onClick={onHistoryClick}
             title="Clipboard History"
             style={{
+              position: 'relative',
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-sm)'
+              justifyContent: 'center',
+              width: '40px',
+              height: '40px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)'
             }}
           >
-            <span style={{ fontSize: '1.1rem' }}>📋</span>
-            <span className="btn-text">History</span>
-            {historyCount > 0 && (
+            <span style={{ fontSize: '1.25rem' }}>📋</span>
+            {hasUnread && (
               <span
+                className="notification-red-dot"
                 style={{
-                  background: 'var(--accent, #6366f1)',
-                  color: '#fff',
-                  fontSize: '0.68rem',
-                  fontWeight: '700',
-                  padding: '1px 6px',
-                  borderRadius: '10px'
+                  position: 'absolute',
+                  top: '5px',
+                  right: '5px',
+                  width: '9px',
+                  height: '9px',
+                  background: '#ef4444',
+                  borderRadius: '50%',
+                  boxShadow: '0 0 6px #ef4444',
+                  border: '1.5px solid var(--bg, #09090b)'
                 }}
-              >
-                {historyCount}
-              </span>
+              />
             )}
           </button>
         )}

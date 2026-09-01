@@ -24,6 +24,7 @@ export default function App() {
   const [showPair, setShowPair] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [hasUnreadHistory, setHasUnreadHistory] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [toast, setToast] = useState(null);
@@ -95,6 +96,9 @@ export default function App() {
   const { connected, sendText } = useSocket(device?.token, {
     onReceive: async (item, flags = {}) => {
       prepend(item);
+      if (!showHistoryModal && !flags.fromSelf) {
+        setHasUnreadHistory(true);
+      }
       if (item.type === 'text' || item.type === 'link') {
         if (!flags.fromSelf) {
           await copyToClipboard(item.content);
@@ -106,6 +110,11 @@ export default function App() {
       setPendingPairRequest(req);
     }
   });
+
+  const handleOpenHistoryModal = () => {
+    setHasUnreadHistory(false);
+    setShowHistoryModal(true);
+  };
 
   useEffect(() => {
     if (serverInfo && serverInfo.hostIpOverride !== undefined) {
@@ -143,8 +152,8 @@ export default function App() {
         serverInfo={serverInfo}
         onPairClick={() => setShowPair(true)}
         onProfileClick={() => setShowSettings(true)}
-        onHistoryClick={isMobile ? () => setShowHistoryModal(true) : null}
-        historyCount={items.length}
+        onHistoryClick={isMobile ? handleOpenHistoryModal : null}
+        hasUnread={hasUnreadHistory}
         onThemeToggle={handleTheme}
         isDark={dark}
       />

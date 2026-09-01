@@ -7,12 +7,18 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
   const [socketConnected, setSocketConnected] = useState(false);
   const [pollingActive, setPollingActive] = useState(false);
   const socketRef = useRef(null);
-  const callbackRef = useRef(onClipboardReceive);
-  const pairRequestCallbackRef = useRef(onPairRequest);
+
+  // Normalize callback whether passed as object or individual arguments
+  const onReceiveFn = typeof onClipboardReceive === 'function' ? onClipboardReceive : onClipboardReceive?.onReceive;
+  const onPairFn = typeof onPairRequest === 'function' ? onPairRequest : onClipboardReceive?.onPairRequest;
+
+  const callbackRef = useRef(onReceiveFn);
+  const pairRequestCallbackRef = useRef(onPairFn);
   const knownItemIdsRef = useRef(new Set());
   const initialFetchDoneRef = useRef(false);
-  callbackRef.current = onClipboardReceive;
-  pairRequestCallbackRef.current = onPairRequest;
+
+  callbackRef.current = onReceiveFn;
+  pairRequestCallbackRef.current = onPairFn;
 
   // 1. Socket connection attempt
   useEffect(() => {
@@ -21,19 +27,16 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
     let socket;
     try {
       const serverUrl = getServerUrl();
-      socket = serverUrl ? io(serverUrl, {
+      const options = {
         transports: ['websocket', 'polling'],
         autoConnect: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        timeout: 5000,
-      }) : io({
-        transports: ['websocket', 'polling'],
-        autoConnect: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 2000,
-        timeout: 5000,
-      });
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 4000,
+        timeout: 8000,
+      };
+
+      socket = serverUrl ? io(serverUrl, options) : io(options);
       socketRef.current = socket;
 
       socket.on('connect', () => {
@@ -78,7 +81,7 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
       if (socket?.connected) {
         socket.emit('device:heartbeat', {});
       }
-    }, 30000);
+    }, 15000);
 
     return () => {
       clearInterval(heartbeat);
@@ -87,7 +90,7 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
     };
   }, [token]);
 
-  // 2. Smart Polling fallback
+  // 2. Continuous Smart Polling Sync (Ensures 100% Real-Time Sync on all networks)
   useEffect(() => {
     if (!token) return;
 
@@ -105,23 +108,19 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
         initialFetchDoneRef.current = true;
         setPollingActive(true);
       } catch (e) {
-        // Retry later
+        // Retry in next interval
       }
     };
 
     syncKnown();
 
     const pollInterval = setInterval(async () => {
-      if (socketRef.current?.connected) {
-        return;
-      }
-
       if (typeof document !== 'undefined' && document.hidden) {
         return;
       }
 
       try {
-        const res = await api.listHistory(token, { limit: 15 });
+        const res = await api.listHistory(token, { limit: 20 });
         if (!isMounted) return;
         setPollingActive(true);
 
@@ -151,9 +150,9 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
           }
         }
       } catch (e) {
-        // Ignore background poll errors
+        // Ignore poll errors
       }
-    }, 2500);
+    }, 1500);
 
     return () => {
       isMounted = false;

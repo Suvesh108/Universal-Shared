@@ -158,9 +158,6 @@ export default function HistoryList({
         </div>
 
         <div className="section-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={onRefresh} title="Refresh clipboard history">
-            Refresh
-          </button>
           {items.length > 0 && (
             <button type="button" className="btn btn-ghost btn-sm danger" onClick={onClear} title="Clear all history">
               Clear All
