@@ -153,6 +153,9 @@ function runMigrations() {
   `);
   db.run('CREATE INDEX IF NOT EXISTS idx_clipboard_created ON clipboard_items(created_at DESC)');
   db.run('CREATE INDEX IF NOT EXISTS idx_devices_last_seen ON devices(last_seen DESC)');
+  try {
+    db.run('ALTER TABLE clipboard_items ADD COLUMN target_device_id TEXT');
+  } catch (e) {}
   persistSql();
 }
 
@@ -385,6 +388,18 @@ export function createPairingCode(code, expiresAt) {
   execute('INSERT INTO pairing_codes (code, expires_at, used) VALUES (?, ?, 0)', [code, expiresAt]);
 }
 
+export function isPairingCodeValid(code) {
+  if (!code) return false;
+  const now = Date.now();
+  const cleanCode = String(code).toUpperCase().trim();
+  if (useJsonStore || !db) {
+    const p = jsonStore.pairing_codes.get(cleanCode);
+    return !!(p && !p.used && p.expiresAt >= now);
+  }
+  const row = queryOne('SELECT * FROM pairing_codes WHERE code = ? AND used = 0 AND expires_at >= ?', [cleanCode, now]);
+  return !!row;
+}
+
 export function consumePairingCode(code) {
   const now = Date.now();
   if (useJsonStore || !db) {
@@ -409,6 +424,7 @@ export function addClipboardItem(item) {
     id: item.id || uuidv4(),
     deviceId: item.deviceId,
     deviceName: item.deviceName,
+    targetDeviceId: item.targetDeviceId || null,
     type: item.type,
     content: item.content || null,
     filePath: item.filePath || null,
@@ -427,22 +443,42 @@ export function addClipboardItem(item) {
     return newItem;
   }
 
-  execute(
-    `INSERT INTO clipboard_items (id, device_id, device_name, type, content, file_path, file_name, mime_type, size, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      newItem.id,
-      newItem.deviceId,
-      newItem.deviceName,
-      newItem.type,
-      newItem.content,
-      newItem.filePath,
-      newItem.fileName,
-      newItem.mimeType,
-      newItem.size,
-      newItem.createdAt,
-    ],
-  );
+  try {
+    execute(
+      `INSERT INTO clipboard_items (id, device_id, device_name, target_device_id, type, content, file_path, file_name, mime_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newItem.id,
+        newItem.deviceId,
+        newItem.deviceName,
+        newItem.targetDeviceId,
+        newItem.type,
+        newItem.content,
+        newItem.filePath,
+        newItem.fileName,
+        newItem.mimeType,
+        newItem.size,
+        newItem.createdAt,
+      ],
+    );
+  } catch (e) {
+    execute(
+      `INSERT INTO clipboard_items (id, device_id, device_name, type, content, file_path, file_name, mime_type, size, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        newItem.id,
+        newItem.deviceId,
+        newItem.deviceName,
+        newItem.type,
+        newItem.content,
+        newItem.filePath,
+        newItem.fileName,
+        newItem.mimeType,
+        newItem.size,
+        newItem.createdAt,
+      ],
+    );
+  }
 
   const count = queryOne('SELECT COUNT(*) as count FROM clipboard_items')?.count || 0;
   if (count > MAX_HISTORY) {
@@ -467,6 +503,7 @@ export function getClipboardItem(id) {
     id: row.id,
     deviceId: row.device_id,
     deviceName: row.device_name,
+    targetDeviceId: row.target_device_id || null,
     type: row.type,
     content: row.content,
     filePath: row.file_path,
@@ -490,6 +527,7 @@ export function listClipboardItems({ limit = 50, offset = 0 } = {}) {
     id: row.id,
     deviceId: row.device_id,
     deviceName: row.device_name,
+    targetDeviceId: row.target_device_id || null,
     type: row.type,
     content: row.content,
     filePath: row.file_path,

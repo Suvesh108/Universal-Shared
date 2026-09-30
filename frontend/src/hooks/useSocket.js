@@ -140,7 +140,10 @@ export function useSocket(token, onClipboardReceive, onPairRequest) {
               if (item?.content && typeof item.content === 'string') {
                 decContent = await decryptText(item.content, token);
               }
-              callbackRef.current?.({ ...item, content: decContent, isEncrypted: item.content?.startsWith('e2ee:') });
+              callbackRef.current?.(
+                { ...item, content: decContent, isEncrypted: item.content?.startsWith('e2ee:') },
+                { fromPolling: true }
+              );
             }
           } else {
             for (const item of res.items) {

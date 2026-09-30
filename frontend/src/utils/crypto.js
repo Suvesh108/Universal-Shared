@@ -63,7 +63,7 @@ export async function encryptText(plainText, secret) {
   }
 
   try {
-    const key = await getAesKey(SHARED_CLUSTER_KEY);
+    const key = await getAesKey(secret || SHARED_CLUSTER_KEY);
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const enc = new TextEncoder();
     const encoded = enc.encode(plainText);

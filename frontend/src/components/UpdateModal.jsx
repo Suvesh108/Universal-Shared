@@ -28,6 +28,9 @@ export default function UpdateModal({ open, onClose, updateInfo }) {
       });
       if (res?.ready) {
         setDownloaded(true);
+      } else {
+        setDownloading(false);
+        onClose();
       }
     } catch (err) {
       setError(err.message || 'Update failed to download');

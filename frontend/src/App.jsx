@@ -14,7 +14,7 @@ import { useTheme } from './hooks/useTheme';
 import { saveDeviceName } from './utils/storage';
 import CustomDialog from './components/CustomDialog';
 import { api, setServerUrl, isCapacitor } from './utils/api';
-import { checkForUpdate } from './utils/updater';
+import { checkForUpdate, CURRENT_VERSION } from './utils/updater';
 
 export default function App() {
   const { device, loading, waitingApproval, error, register, pairWithCode, logout, updateProfile } = useDevice();
@@ -96,11 +96,12 @@ export default function App() {
   const { connected, sendText } = useSocket(device?.token, {
     onReceive: async (item, flags = {}) => {
       prepend(item);
-      if (!showHistoryModal && !flags.fromSelf) {
+      const isFromSelf = flags.fromSelf || (device?.id && item.deviceId === device.id);
+      if (!showHistoryModal && !isFromSelf) {
         setHasUnreadHistory(true);
       }
       if (item.type === 'text' || item.type === 'link') {
-        if (!flags.fromSelf) {
+        if (!isFromSelf && item.content) {
           await copyToClipboard(item.content);
           showToast(`Synced from ${item.deviceName || 'device'}`);
         }
@@ -145,7 +146,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app app-container ${isHistoryEnlarged ? 'history-expanded' : ''}`}>
       <Header
         device={device}
         connected={connected}
@@ -173,7 +174,7 @@ export default function App() {
           />
         </main>
       ) : (
-        <main className="desktop-split-layout">
+        <main className={`desktop-split-layout ${isHistoryEnlarged ? 'history-expanded' : ''}`}>
           <div className="left-sender-fixed-column">
             <ClipboardInput
               token={device.token}
@@ -273,7 +274,7 @@ export default function App() {
             setUpdateInfo(info);
             setShowUpdateModal(true);
           } else {
-            showAlert('You are using the latest version of Universal Shared (v0.2.0).', 'Up to Date');
+            showAlert(`You are using the latest version of Universal Shared (${info?.currentVersion || CURRENT_VERSION}).`, 'Up to Date');
           }
         }}
       />

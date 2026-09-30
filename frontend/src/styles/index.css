@@ -91,7 +91,8 @@ body {
   overflow: hidden;
 }
 
-.app {
+.app,
+.app-container {
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -205,6 +206,12 @@ body {
   height: calc(100vh - 68px);
   overflow: hidden;
   box-sizing: border-box;
+  transition: grid-template-columns 0.3s cubic-bezier(0.16, 1, 0.3, 1), gap 0.3s ease;
+}
+
+.desktop-split-layout.history-expanded {
+  grid-template-columns: 32% 64%;
+  gap: 4%;
 }
 
 .left-sender-fixed-column {
@@ -249,7 +256,7 @@ body {
 }
 
 @media (max-width: 900px) {
-  html, body, #root, .app {
+  html, body, #root, .app, .app-container {
     height: auto !important;
     overflow: auto !important;
   }

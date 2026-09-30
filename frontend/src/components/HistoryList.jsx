@@ -50,7 +50,7 @@ function HistoryItem({ item, currentDeviceId, onCopy, onDelete }) {
   const badgeLabel = isAndroid ? 'Android' : isLinux ? 'Linux' : 'Windows';
 
   return (
-    <div className={`history-row ${isOwn ? 'align-left' : 'align-right'}`}>
+    <div className={`history-row ${isOwn ? 'align-right' : 'align-left'}`}>
       <div className="history-bubble-wrapper">
         <div className="history-bubble">
           <div className="history-bubble-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
@@ -160,14 +160,16 @@ export default function HistoryList({
 }) {
   return (
     <section className={`card history-section ${isModalView ? 'history-modal-view' : ''}`} style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border)', marginBottom: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
-            Clipboard History {items.length > 0 && <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 400 }}>({items.length})</span>}
-          </h2>
-        </div>
+      <div className="section-header" style={{ flexWrap: 'wrap', gap: '8px', paddingBottom: '0.75rem', borderBottom: isModalView && items.length === 0 ? 'none' : '1px solid var(--border)', marginBottom: '0.75rem' }}>
+        {!isModalView && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
+              Clipboard History {items.length > 0 && <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 400 }}>({items.length})</span>}
+            </h2>
+          </div>
+        )}
 
-        <div className="section-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <div className="section-actions" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: isModalView ? 'auto' : undefined }}>
           {items.length > 0 && (
             <button type="button" className="btn btn-ghost btn-sm danger" onClick={onClear} title="Clear all history">
               Clear All

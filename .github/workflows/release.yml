@@ -1,4 +1,4 @@
-﻿name: Build and Release
+name: Build and Release
 
 on:
   push:
@@ -51,10 +51,14 @@ jobs:
       - name: Collect Release Binaries
         shell: pwsh
         run: |
+          $ver = "${{ github.ref_name }}".TrimStart('v')
           New-Item -ItemType Directory -Force -Path dist-bin
-          Copy-Item "frontend/android/app/build/outputs/apk/debug/app-debug.apk" -Destination "dist-bin/universal-shared-v0.1.apk"
-          Copy-Item "dist-electron/Universal Shared Setup 0.1.0.exe" -Destination "dist-bin/universal-shared-v0.1-setup.exe"
-          Copy-Item "dist-electron/Universal Shared 0.1.0.exe" -Destination "dist-bin/universal-shared-v0.1.exe"
+          if (Test-Path "frontend/android/app/build/outputs/apk/debug/app-debug.apk") {
+            Copy-Item "frontend/android/app/build/outputs/apk/debug/app-debug.apk" -Destination "dist-bin/universal-shared-v$ver.apk"
+          }
+          Get-ChildItem -Path "dist-electron" -Filter "*.exe" | ForEach-Object {
+            Copy-Item $_.FullName -Destination "dist-bin/$($_.Name)"
+          }
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -64,6 +68,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            dist-bin/universal-shared-v0.1.apk
-            dist-bin/universal-shared-v0.1-setup.exe
-            dist-bin/universal-shared-v0.1.exe
+            dist-bin/*

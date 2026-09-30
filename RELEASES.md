@@ -1,6 +1,30 @@
 # 📦 Universal Shared — Releases
 
-## 🚀 Release v0.2.2 (Latest)
+## 🚀 Release v0.2.3 (Latest)
+
+| File Name | Platform | Format | Size | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **[`releases/universal-shared-v0.2.3.apk`](./releases/universal-shared-v0.2.3.apk)** | Android (8.0+) | APK | **4.15 MB** | Zero-echo sync, lightweight history polling (<5KB), direct-to-device transfers |
+| **[`releases/universal-shared-v0.2.3-setup.exe`](./releases/universal-shared-v0.2.3-setup.exe)** | Windows (10/11) | NSIS Installer | **124.84 MB** | Complete Windows desktop installer with expandable history layout and secured pairing |
+| **[`releases/universal-shared-v0.2.3.exe`](./releases/universal-shared-v0.2.3.exe)** | Windows (10/11) | Portable EXE | **124.60 MB** | Single-file portable executable for Windows (no install required) |
+
+### ✨ What's New & Fixed in v0.2.3:
+1. **⚡ 99% Lighter Polling Payloads & Memory Protection**:
+   - Stripped redundant base64 data from file/media history entries. Continuous background sync polls now transfer <5 KB instead of 50–100 MB+, completely preventing browser tab lag and memory exhaustion.
+2. **🔄 Zero-Echo Clipboard Synchronization**:
+   - Filtered self-originated clipboard events during polling, eliminating duplicate toasts and clipboard self-overwrites.
+3. **🌐 Seamless Cloud & Vercel Pairing**:
+   - Host header detection automatically routes pairing QR codes to your public domain when deployed online, with strict pairing code validation.
+4. **🛡️ Security Hardening**:
+   - Protected system settings endpoints with device token authentication and IP sanitization.
+5. **🎯 Direct-to-Device File Transfers**:
+   - Dragging and dropping files onto a specific device card now directly targets that recipient device.
+6. **🎨 UI & Layout Polish**:
+   - Corrected chat bubble layout (own items on right with accent styling, incoming on left), cleaned up mobile history dialog, and enabled the desktop "Expand History" grid mode.
+
+---
+
+## 📦 Release v0.2.2
 
 | File Name | Platform | Format | Size | Description |
 | :--- | :--- | :--- | :--- | :--- |

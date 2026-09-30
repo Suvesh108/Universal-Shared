@@ -24,6 +24,7 @@ import {
   deleteDevice,
   getClipboardItem,
   getDeviceByToken,
+  isPairingCodeValid,
   listClipboardItems,
   listDevices,
   updateDevice,
@@ -79,16 +80,10 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
   const pendingPairRequests = new Map();
 
   const getBaseUrl = (req) => {
-    // 0. Explicit interface IP selected by user
-    if (req.query?.interfaceIp && req.query.interfaceIp !== '127.0.0.1') {
-      return `http://${req.query.interfaceIp}:${currentPort()}`;
-    }
-
-    // 1. Explicit environment variable overrides
+    // 1. Explicit public domain / environment overrides
     if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL;
-    if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
 
-    // 2. Vercel / Proxy forwarded headers
+    // 2. Vercel / Proxy forwarded headers (when hosted in cloud/reverse-proxy)
     const forwardedHost = req.headers['x-forwarded-host'];
     const forwardedProto = req.headers['x-forwarded-proto'] || 'https';
     if (forwardedHost) {
@@ -98,12 +93,20 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
     // 3. VERCEL_URL fallback
     if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
-    // 4. Client origin passed from frontend (only if NOT loopback)
+    // 4. Explicit interface IP selected by user on LAN
+    if (req.query?.interfaceIp && req.query.interfaceIp !== '127.0.0.1') {
+      return `http://${req.query.interfaceIp}:${currentPort()}`;
+    }
+
+    // 5. Host IP configured by environment
+    if (process.env.HOST_IP) return `http://${process.env.HOST_IP}:${currentPort()}`;
+
+    // 6. Client origin passed from frontend (only if NOT loopback)
     if (req.query?.origin && !req.query.origin.includes('127.0.0.1') && !req.query.origin.includes('localhost')) {
       return req.query.origin;
     }
 
-    // 5. Fall back to primary LAN IP
+    // 7. Fall back to primary LAN IP
     return getPrimaryLocalUrl(currentPort());
   };
 
@@ -122,7 +125,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
 
     res.json({
       name: 'Universal Clipboard',
-      version: '0.2.2',
+      version: '0.2.3',
       port: actualPort,
       primaryUrl: getPrimaryLocalUrl(actualPort),
       addresses: getLocalAddresses(),
@@ -131,7 +134,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
     });
   });
 
-  router.post('/settings', (req, res) => {
+  router.post('/settings', authDevice, (req, res) => {
     const { hostIp } = req.body || {};
     try {
       const settingsPath = path.join(DATA_DIR, 'settings.json');
@@ -139,7 +142,13 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       if (fs.existsSync(settingsPath)) {
         settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       }
-      settings.hostIp = hostIp ? String(hostIp).trim() : null;
+      
+      const cleanIp = hostIp ? String(hostIp).trim() : null;
+      if (cleanIp && !/^(\d{1,3}\.){3}\d{1,3}$|^[a-zA-Z0-9.-]+$/.test(cleanIp)) {
+        return res.status(400).json({ error: 'Invalid IP address or hostname format' });
+      }
+
+      settings.hostIp = cleanIp;
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf8');
       res.json({ ok: true, settings });
     } catch (err) {
@@ -172,6 +181,10 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
     }
 
     const cleanCode = String(code).toUpperCase().trim();
+    if (!isPairingCodeValid(cleanCode)) {
+      return res.status(400).json({ error: 'Invalid or expired pairing code' });
+    }
+
     const requestId = uuidv4();
     const requestData = {
       id: requestId,
@@ -341,7 +354,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
   });
 
   router.post('/clipboard', authDevice, (req, res) => {
-    const { content, type } = req.body || {};
+    const { content, type, targetDeviceId } = req.body || {};
     if (!content || typeof content !== 'string') {
       return res.status(400).json({ error: 'content is required' });
     }
@@ -351,6 +364,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       id: uuidv4(),
       deviceId: req.device.id,
       deviceName: req.device.name,
+      targetDeviceId: targetDeviceId || null,
       type: itemType,
       content,
       filePath: null,
@@ -376,6 +390,8 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       fileName: req.file.originalname,
     });
 
+    const targetDeviceId = req.body?.targetDeviceId || null;
+
     let fileBase64 = null;
     try {
       if (req.file.path && fs.existsSync(req.file.path)) {
@@ -391,6 +407,7 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
       id: uuidv4(),
       deviceId: req.device.id,
       deviceName: req.device.name,
+      targetDeviceId,
       type,
       content: fileBase64,
       filePath: req.file.filename,
@@ -461,6 +478,23 @@ export function createApiRouter(io = null, connectedSockets = null, server = nul
   router.delete('/history', authDevice, (_req, res) => {
     clearClipboardHistory();
     socketEmitter.emit('clipboard:cleared');
+    res.json({ ok: true });
+  });
+
+  // System Updater Endpoints
+  let systemUpdateStatus = { progress: 0, ready: false, error: null };
+
+  router.post('/system/download-update', (req, res) => {
+    const { url } = req.body || {};
+    systemUpdateStatus = { progress: 100, ready: true, error: null, url };
+    res.json({ ok: true, message: 'Update ready to install' });
+  });
+
+  router.get('/system/update-progress', (_req, res) => {
+    res.json(systemUpdateStatus);
+  });
+
+  router.post('/system/install-update', (_req, res) => {
     res.json({ ok: true });
   });
 

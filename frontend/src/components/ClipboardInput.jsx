@@ -46,7 +46,7 @@ export default function ClipboardInput({ token, onSent, sendText, showAlert, dev
       setUploadProgress(0);
       setCurrentFileName(file.name);
       try {
-        const { item } = await api.uploadFile(token, file, setUploadProgress);
+        const { item } = await api.uploadFile(token, file, setUploadProgress, directTargetDev);
         onSent?.(item);
       } catch (err) {
         showAlert?.(`${file.name}: ${err.message}`, 'Upload Error');

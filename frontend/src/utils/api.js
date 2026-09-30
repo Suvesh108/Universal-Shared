@@ -132,18 +132,19 @@ export const api = {
       headers: headers(token),
     }).then(parseJson),
 
-  sendText: (token, content, type) =>
+  sendText: (token, content, type, targetDeviceId = null) =>
     fetch(apiUrl('/api/clipboard'), {
       method: 'POST',
       headers: headers(token, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ content, type }),
+      body: JSON.stringify({ content, type, targetDeviceId }),
     }).then(parseJson),
 
-  uploadFile: (token, file, onProgress) =>
+  uploadFile: (token, file, onProgress, targetDeviceId = null) =>
     new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const form = new FormData();
       form.append('file', file);
+      if (targetDeviceId) form.append('targetDeviceId', targetDeviceId);
 
       xhr.open('POST', apiUrl('/api/upload'));
       xhr.setRequestHeader('X-Device-Token', token);

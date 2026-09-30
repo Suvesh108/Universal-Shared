@@ -19,19 +19,21 @@ export function detectType({ content, mimeType, fileName }) {
 }
 
 export function serializeItem(item, baseUrl) {
+  const isFilePayload = !!item.filePath || item.type === 'file' || item.type === 'image' || item.type === 'video';
   const payload = {
     id: item.id,
     deviceId: item.deviceId,
     deviceName: item.deviceName,
     type: item.type,
-    content: item.content,
+    content: isFilePayload ? null : item.content,
     fileName: item.fileName,
     mimeType: item.mimeType,
     size: item.size,
+    targetDeviceId: item.targetDeviceId || null,
     createdAt: item.createdAt,
   };
 
-  if (item.filePath) {
+  if (item.filePath || isFilePayload) {
     payload.fileUrl = `${baseUrl}/api/files/${item.id}`;
   }
 
